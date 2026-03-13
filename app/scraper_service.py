@@ -8,11 +8,17 @@ from scrapers.daniel import DanielScraper
 from scrapers.fragranza import FragranzaScraper
 from scrapers.notino import NotinoScraper
 from scrapers.vivantis import VivantisScraper
+from scrapers.parfimo import ParfimoScraper
+from scrapers.parfumat import ParfumatScraper
+from scrapers.orioudh import OrioudhScraper
 
 SCRAPERS = [
     FragranzaScraper(),
     DanielScraper(),
     VivantisScraper(),
+    ParfimoScraper(),
+    ParfumatScraper(),
+    OrioudhScraper(),
     NotinoScraper(),
 ]
 
