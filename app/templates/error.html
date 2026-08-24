@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}{{ status_code }} - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <h1>{{ status_code }}</h1>
+    <p>{{ detail }}</p>
+    <a href="/" class="button">Back to dashboard</a>
+</div>
+{% endblock %}

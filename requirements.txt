@@ -1,0 +1,32 @@
+# Web framework and server
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.32,<1.0  # includes httptools/websockets; prebuilt wheels need Python 3.9+ 64-bit
+
+# Templating (Jinja2 + HTMX-driven UI)
+jinja2>=3.1,<4.0
+
+# Required by Starlette to parse HTML form submissions (add/edit perfume forms)
+python-multipart>=0.0.12,<1.0
+
+# Configuration (.env loading, typed settings)
+pydantic>=2.9,<3.0
+pydantic-settings>=2.6,<3.0
+
+# Database (SQLite ORM, models, repositories)
+sqlalchemy>=2.0,<3.0
+
+# Async HTTP client for scrapers
+httpx>=0.27,<1.0
+
+# HTML parsing for scrapers (Fragranza.ro is server-rendered - no
+# JavaScript execution needed, so BeautifulSoup+lxml is sufficient)
+beautifulsoup4>=4.12,<5.0
+lxml>=5.3,<6.0
+
+# Fuzzy name matching for the product-matching layer (tolerates minor
+# spelling/spacing differences between stores; never used for brand,
+# concentration, volume, or tester - those stay exact matches)
+rapidfuzz>=3.10,<4.0
+
+# Testing
+pytest>=8.3,<9.0

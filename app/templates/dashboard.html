@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Monitored perfumes</h1>
+    <div class="header-actions">
+        <a href="/perfumes/new" class="button secondary">Add perfume</a>
+        {% if perfumes %}
+        <form
+            method="post"
+            action="/check-all"
+            style="display:inline;"
+            onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Checking all perfumes...';"
+        >
+            <button type="submit" class="button">Check all perfumes</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if perfumes %}
+<div class="perfume-list">
+    {% for perfume in perfumes %}
+    <article class="perfume-card">
+        <h2><a href="/perfumes/{{ perfume.id }}">{{ perfume.brand }} {{ perfume.name }}</a></h2>
+        <p class="meta">
+            Last checked:
+            {% if perfume.last_checked_at %}
+                {{ perfume.last_checked_at.strftime("%d %b %Y, %H:%M") }}
+            {% else %}
+                Never
+            {% endif %}
+        </p>
+        <div class="card-actions">
+            <a href="/perfumes/{{ perfume.id }}" class="button secondary">View</a>
+            <form
+                method="post"
+                action="/perfumes/{{ perfume.id }}/check"
+                style="display:inline;"
+                onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Checking...';"
+            >
+                <button type="submit" class="button secondary">Check now</button>
+            </form>
+            <a href="/perfumes/{{ perfume.id }}/edit" class="button secondary">Edit</a>
+            <form
+                method="post"
+                action="/perfumes/{{ perfume.id }}/delete"
+                onsubmit="return confirm('Delete {{ perfume.brand }} {{ perfume.name }}?');"
+                style="display:inline;"
+            >
+                <button type="submit" class="button secondary">Delete</button>
+            </form>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+{% else %}
+<p class="empty-state">No perfumes are being monitored yet.</p>
+{% endif %}
+{% endblock %}

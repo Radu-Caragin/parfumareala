@@ -1,0 +1,395 @@
+:root {
+    --color-bg: #f7f7f8;
+    --color-surface: #ffffff;
+    --color-border: #e2e2e5;
+    --color-text: #1a1a1e;
+    --color-text-muted: #6b6b73;
+    --color-primary: #2f6f4f;
+    --color-primary-hover: #255a40;
+    --radius: 8px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+.site-header {
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+}
+
+.brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+nav a {
+    color: var(--color-text-muted);
+    text-decoration: none;
+    margin-left: 1.5rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 2px solid transparent;
+}
+
+nav a.active,
+nav a:hover {
+    color: var(--color-text);
+    border-bottom-color: var(--color-primary);
+}
+
+main {
+    padding: 2rem 1.5rem;
+}
+
+h1 {
+    margin-top: 0;
+}
+
+.perfume-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.perfume-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+}
+
+.perfume-card h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+}
+
+.meta {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.empty-state {
+    color: var(--color-text-muted);
+    padding: 2rem 0;
+    text-align: center;
+}
+
+.button {
+    display: inline-block;
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.button:hover {
+    background: var(--color-primary-hover);
+}
+
+.button.secondary {
+    background: transparent;
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+}
+
+.button.secondary:hover {
+    background: var(--color-bg);
+}
+
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+}
+
+.card-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.perfume-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-width: 420px;
+}
+
+.perfume-form label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-top: 0.75rem;
+}
+
+.perfume-form input[type="text"] {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-family: inherit;
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+}
+
+.error {
+    background: #fdecea;
+    color: #a12622;
+    border: 1px solid #f5c6cb;
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+}
+
+.store-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.store-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+}
+
+.store-row h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge-enabled {
+    background: #e6f4ea;
+    color: #1e7e34;
+}
+
+.badge-disabled {
+    background: #f1f1f3;
+    color: #6b6b73;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.store-status-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.store-status-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.status-in_stock {
+    background: #e6f4ea;
+    color: #1e7e34;
+}
+
+.status-out_of_stock {
+    background: #fff4e5;
+    color: #b26a00;
+}
+
+.status-not_found {
+    background: #f1f1f3;
+    color: #6b6b73;
+}
+
+.status-scraping_error,
+.status-store_unavailable {
+    background: #fdecea;
+    color: #a12622;
+}
+
+.variant-block {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.variant-block h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+}
+
+.table-scroll {
+    overflow-x: auto;
+}
+
+.offers-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.offers-table th,
+.offers-table td {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 0.9rem;
+}
+
+.old-price {
+    color: var(--color-text-muted);
+    text-decoration: line-through;
+    margin-left: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.discount-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: #fdecea;
+    color: #a12622;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.best-price-row {
+    background: #e6f4ea;
+}
+
+.best-price-banner {
+    margin: 0.75rem 0 0;
+    font-size: 0.9rem;
+    color: #1e7e34;
+}
+
+.alert-banner {
+    background: #fff8e1;
+    border: 1px solid #f0c36d;
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.alert-banner h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    color: #8a6100;
+}
+
+.alert-banner-item {
+    margin-bottom: 0.5rem;
+}
+
+.alert-banner-item:last-child {
+    margin-bottom: 0;
+}
+
+.alert-banner-item p {
+    margin: 0.1rem 0;
+    font-size: 0.9rem;
+}
+
+.variant-alerts {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.alert-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+}
+
+.alert-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.alert-form input[type="number"] {
+    width: 100px;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-family: inherit;
+}
+
+.button.small {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.error-page {
+    text-align: center;
+    padding: 3rem 0;
+}
+
+.error-page h1 {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-text-muted);
+}
+
+.error-page p {
+    margin-bottom: 1.5rem;
+}

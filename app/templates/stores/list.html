@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Stores - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<h1>Stores</h1>
+
+<div class="store-list">
+    {% for store in stores %}
+    <article class="store-row">
+        <div class="store-info">
+            <h2>{{ store.name }}</h2>
+            <p class="meta"><a href="{{ store.base_url }}" target="_blank" rel="noopener">{{ store.base_url }}</a></p>
+            <p class="meta">
+                {% if store.enabled %}
+                    <span class="badge badge-enabled">Enabled</span>
+                {% else %}
+                    <span class="badge badge-disabled">Disabled</span>
+                {% endif %}
+                {% if store.last_successful_check %}
+                    &middot; Last successful check: {{ store.last_successful_check.strftime("%d %b %Y, %H:%M") }}
+                {% endif %}
+            </p>
+            {% if store.last_error %}
+            <p class="error">Last error: {{ store.last_error }}</p>
+            {% endif %}
+        </div>
+        <form method="post" action="/stores/{{ store.id }}/toggle">
+            {% if store.enabled %}
+                <button type="submit" class="button secondary">Disable</button>
+            {% else %}
+                <button type="submit" class="button">Enable</button>
+            {% endif %}
+        </form>
+    </article>
+    {% endfor %}
+</div>
+{% endblock %}

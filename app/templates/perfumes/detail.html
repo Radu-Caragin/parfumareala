@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}{{ perfume.brand }} {{ perfume.name }} - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<p><a href="/">&larr; Back to dashboard</a></p>
+
+<div class="page-header">
+    <h1>{{ perfume.brand }} {{ perfume.name }}</h1>
+    <form
+        method="post"
+        action="/perfumes/{{ perfume.id }}/check"
+        onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Checking...';"
+    >
+        <button type="submit" class="button">Check prices</button>
+    </form>
+</div>
+
+<p class="meta">
+    Last checked:
+    {% if perfume.last_checked_at %}
+        {{ perfume.last_checked_at.strftime("%d %b %Y, %H:%M") }}
+    {% else %}
+        Never
+    {% endif %}
+</p>
+
+<div class="form-actions">
+    <a href="/perfumes/{{ perfume.id }}/edit" class="button secondary">Edit</a>
+    <form
+        method="post"
+        action="/perfumes/{{ perfume.id }}/delete"
+        onsubmit="return confirm('Delete {{ perfume.brand }} {{ perfume.name }}? This also deletes its variants, prices and alerts.');"
+        style="display:inline;"
+    >
+        <button type="submit" class="button secondary">Delete</button>
+    </form>
+</div>
+
+{% if triggered_alerts %}
+<div class="alert-banner">
+    <h2>Price alert{{ "s" if triggered_alerts|length > 1 else "" }} triggered</h2>
+    {% for triggered in triggered_alerts %}
+    <div class="alert-banner-item">
+        <strong>
+            {{ triggered.alert.variant.concentration }} &mdash; {{ triggered.alert.variant.volume_ml }} ml
+            {%- if triggered.alert.variant.tester %} &mdash; Tester{% endif %}
+        </strong>
+        {% for offer in triggered.matching_offers %}
+        <p>
+            {{ offer.store.name }}: {{ offer.current_price }} {{ offer.currency }}
+            <span class="meta">(target: {{ triggered.alert.target_price }} {{ triggered.alert.currency }})</span>
+        </p>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if store_results %}
+<h2>Store status</h2>
+<ul class="store-status-list">
+    {% for result in store_results %}
+    <li>
+        <strong>{{ result.store.name }}</strong>
+        <span class="status-badge status-{{ result.status.value }}">
+            {%- if result.status.value == "in_stock" -%} In stock
+            {%- elif result.status.value == "out_of_stock" -%} Out of stock
+            {%- elif result.status.value == "not_found" -%} Not available
+            {%- elif result.status.value == "scraping_error" -%} Scraping error
+            {%- elif result.status.value == "store_unavailable" -%} Store unavailable
+            {%- endif -%}
+        </span>
+        {% if result.error_message %}<span class="meta">({{ result.error_message }})</span>{% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<h2>Variants</h2>
+{% if comparisons %}
+{% for comparison in comparisons %}
+{% set variant = comparison.variant %}
+<div class="variant-block">
+    <h3>
+        {{ variant.concentration }} &mdash; {{ variant.volume_ml }} ml
+        {%- if variant.tester %} &mdash; Tester{% endif %}
+    </h3>
+    {% if comparison.store_products %}
+    <div class="table-scroll">
+    <table class="offers-table">
+        <thead>
+            <tr><th>Store</th><th>Price</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for sp in comparison.store_products %}
+            <tr class="{{ 'best-price-row' if comparison.best_offer and sp.id == comparison.best_offer.id else '' }}">
+                <td>{{ sp.store.name }}</td>
+                <td>
+                    {{ sp.current_price }} {{ sp.currency }}
+                    {% if sp.current_old_price %}
+                        <span class="old-price">{{ sp.current_old_price }} {{ sp.currency }}</span>
+                    {% endif %}
+                    {% if sp.discount_percentage %}
+                        <span class="discount-badge">-{{ sp.discount_percentage }}%</span>
+                    {% endif %}
+                </td>
+                <td>{{ "In stock" if sp.availability.value == "in_stock" else "Out of stock" }}</td>
+                <td>
+                    <a href="{{ sp.product_url }}" target="_blank" rel="noopener">View product</a>
+                    &middot;
+                    <a href="/perfumes/{{ perfume.id }}/history/{{ sp.id }}">History</a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% if comparison.best_offer %}
+    <p class="best-price-banner">
+        Best price: <strong>{{ comparison.best_offer.store.name }} &mdash; {{ comparison.best_offer.current_price }} {{ comparison.best_offer.currency }}</strong>
+    </p>
+    {% else %}
+    <p class="meta">No offer currently in stock.</p>
+    {% endif %}
+    {% else %}
+    <p class="empty-state">No store currently lists this variant.</p>
+    {% endif %}
+
+    <div class="variant-alerts">
+        {% for alert in variant.alerts %}
+        <div class="alert-row">
+            <span>Alert: price &le; {{ alert.target_price }} {{ alert.currency }}</span>
+            <form method="post" action="/alerts/{{ alert.id }}/delete" style="display:inline;">
+                <button type="submit" class="button secondary small">Remove</button>
+            </form>
+        </div>
+        {% endfor %}
+        <form method="post" action="/perfumes/{{ perfume.id }}/variants/{{ variant.id }}/alerts" class="alert-form">
+            <label>
+                Alert if price &le;
+                <input type="number" step="0.01" min="0.01" name="target_price" placeholder="e.g. 750" required>
+                RON
+            </label>
+            <button type="submit" class="button secondary small">Set alert</button>
+        </form>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<p class="empty-state">No variants discovered yet. Click "Check prices" to search.</p>
+{% endif %}
+{% endblock %}

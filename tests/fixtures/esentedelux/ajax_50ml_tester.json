@@ -1,0 +1,6 @@
+{
+  "id_product_attribute": 3529,
+  "product_has_combinations": true,
+  "product_prices": "<div class=\"product-prices js-product-prices\"><div class=\"\"><div><span class=\"current-price\"><span class=\"product-price current-price-value\" content=\"79\"> 79,00&nbsp;lei </span></span></div></div></div>",
+  "product_add_to_cart": "<div class=\"product-add-to-cart pt-3 js-product-add-to-cart\"><div class=\"add\"><button class=\"btn btn-primary btn-lg add-to-cart disabled\" data-button-action=\"add-to-cart\" type=\"submit\" disabled=\"disabled\">Indisponibil</button></div></div>"
+}

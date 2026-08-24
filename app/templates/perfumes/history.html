@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Price history - {{ perfume.brand }} {{ perfume.name }} - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<p><a href="/perfumes/{{ perfume.id }}">&larr; Back to {{ perfume.brand }} {{ perfume.name }}</a></p>
+
+<h1>Price history</h1>
+<p class="meta">
+    {{ store_product.variant.concentration }} &mdash; {{ store_product.variant.volume_ml }} ml
+    {%- if store_product.variant.tester %} &mdash; Tester{% endif %}
+    &middot; {{ store_product.store.name }}
+</p>
+
+{% if history %}
+<div class="table-scroll">
+<table class="offers-table">
+    <thead>
+        <tr><th>Date</th><th>Price</th><th>Old price</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+    {% for entry in history %}
+        <tr>
+            <td>{{ entry.recorded_at.strftime("%d %b %Y, %H:%M") }}</td>
+            <td>{{ entry.price }} {{ entry.currency }}</td>
+            <td>{% if entry.old_price %}{{ entry.old_price }} {{ entry.currency }}{% else %}&mdash;{% endif %}</td>
+            <td>{{ "In stock" if entry.availability.value == "in_stock" else "Out of stock" }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty-state">No price history recorded yet.</p>
+{% endif %}
+{% endblock %}
