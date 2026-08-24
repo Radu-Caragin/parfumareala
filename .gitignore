@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables (personal/local secrets, machine-specific config)
+.env
+
+# SQLite database (personal scraped data, not meant for version control)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Logs
+logs/*.log
+logs/*.log.*
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Playwright (if introduced later for a store requiring browser rendering)
+.playwright-cache/
+test-results/
+
+# Editors
+.vscode/
+.idea/
