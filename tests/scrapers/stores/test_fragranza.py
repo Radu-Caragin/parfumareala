@@ -70,6 +70,46 @@ def test_search_perfume_paginates_and_filters_by_name():
     assert "https://fragranza.ro/xerjoff?page=2" in requested  # pagination followed
 
 
+def test_is_plausible_candidate_strips_concentration_baked_into_name_field():
+    # Regression: for most product lines .product-name-middle is a bare
+    # name ("Erba Gold"), but for "Extrait de Parfum" lines the site bakes
+    # the concentration into that same field ("Ani Extrait De Parfum").
+    # Comparing that raw against a short target name like "Ani" used to
+    # tank the fuzzy score (~25, well under threshold) and silently drop
+    # the real product before it was ever fetched.
+    assert FragranzaScraper._is_plausible_candidate(
+        "Nishane", "Ani Extrait De Parfum", "Nishane", "Ani", ambiguous_threshold=70
+    )
+    # A genuinely different product ("Ani X") must still not pass as an
+    # exact match, even though it's superficially close to "Ani".
+    assert FragranzaScraper._is_plausible_candidate(
+        "Nishane", "Ani X Extrait De Parfum", "Nishane", "Ani", ambiguous_threshold=95
+    ) is False
+
+
+def test_parse_product_cleans_concentration_out_of_perfume_name():
+    # Same root cause as the plausibility-filter regression above, but for
+    # the final ScrapedOffer.perfume_name - matching_service compares this
+    # field against the monitored perfume's bare name, so it must be
+    # cleaned the same way, not just the discovery-stage pre-filter.
+    candidate = _ListingCandidate(
+        product_url="https://fragranza.ro/xerjoff-erba-pura-tester-edp",
+        brand="Xerjoff",
+        name="Erba Pura Extrait De Parfum",
+        type_text="Apa de parfum Tester EDP",
+    )
+    soup = BeautifulSoup(_fixture("product_single_variant.html"), "lxml")
+
+    async def run():
+        async with FragranzaScraper(settings=_test_settings()) as scraper:
+            return await scraper.parse_product(_FetchedProduct(candidate=candidate, soup=soup))
+
+    offers = asyncio.run(run())
+
+    assert len(offers) == 1
+    assert offers[0].perfume_name == "erba pura"
+
+
 def test_search_perfume_unknown_brand_returns_empty():
     async def run():
         async with FragranzaScraper(settings=_test_settings(), transport=httpx.MockTransport(_handler([]))) as scraper:

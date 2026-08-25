@@ -29,7 +29,7 @@ from rapidfuzz import fuzz
 
 from app.normalization.brand import normalize_brand
 from app.normalization.concentration import extract_concentration
-from app.normalization.name import normalize_name
+from app.normalization.name import extract_core_name, normalize_name
 from app.normalization.price import parse_price
 from app.normalization.tester import is_tester
 from app.normalization.volume import extract_volume_ml
@@ -154,11 +154,20 @@ class FragranzaScraper(BaseScraper):
         worth fetching in full. Deliberately permissive - the authoritative
         match (brand, name, concentration, volume, tester) happens later in
         matching_service once the exact variant is known.
+
+        item_name must be run through extract_core_name(), not compared
+        raw - for most product lines here .product-name-middle is just the
+        bare name (e.g. "Erba Gold"), but for "Extrait de Parfum" lines
+        (e.g. Nishane) the site bakes the concentration into that same
+        field ("Ani Extrait De Parfum"). Comparing that raw against a
+        short target name like "Ani" tanks the fuzzy score (~25, well
+        under threshold) and silently drops the real product before it's
+        ever fetched - found via a live cross-store mismatch report.
         """
         if normalize_brand(item_brand) != normalize_brand(target_brand):
             return False
 
-        candidate_name = normalize_name(item_name)
+        candidate_name = extract_core_name(item_name, brand=item_brand)
         target_normalized = normalize_name(target_name)
         if candidate_name == target_normalized:
             return True
@@ -225,7 +234,7 @@ class FragranzaScraper(BaseScraper):
             product_url=candidate.product_url,
             store_product_identifier=radio.get("value"),
             brand=candidate.brand,
-            perfume_name=candidate.name,
+            perfume_name=extract_core_name(candidate.name, brand=candidate.brand),
             concentration=concentration,
             volume_ml=volume_ml,
             tester=tester,
@@ -256,7 +265,7 @@ class FragranzaScraper(BaseScraper):
             product_url=candidate.product_url,
             store_product_identifier=sku,
             brand=candidate.brand,
-            perfume_name=candidate.name,
+            perfume_name=extract_core_name(candidate.name, brand=candidate.brand),
             concentration=concentration,
             volume_ml=volume_ml,
             tester=tester,

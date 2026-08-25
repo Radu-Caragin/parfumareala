@@ -9,6 +9,19 @@ Pattern order matters: multi-word phrases that contain "parfum" or
 "cologne" (e.g. "eau de parfum", "extrait de parfum") must be checked
 before the bare "parfum"/"cologne" fallback patterns, otherwise the bare
 pattern would match first and misclassify them.
+
+Romanian retailers write this concentration as "Extract de Parfum", not
+just the French "Extrait de Parfum" - both are matched to "Extrait".
+Found via a real cross-store mismatch: EsenteDeLux and Parfimo both use
+"extract" natively (confirmed live - EsenteDeLux's own "Tip produs"
+dropdown option is literally "extract de parfum"), while Fragranza uses
+"extrait". Missing the Romanian spelling didn't just misclassify it as
+"Parfum" (falling through to the bare fallback) - it also broke candidate
+discovery entirely: strip_concentration_tokens only stripped the bare
+"parfum" word, leaving "extract de" behind as noise that dragged a
+correct candidate's fuzzy-match score for a short perfume name (e.g.
+"Ani") from ~100 down to ~35, well under the ambiguous threshold, so the
+real product got silently dropped before ever being fetched.
 """
 
 import re
@@ -25,7 +38,9 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\beau\s+de\s+cologne\b", re.IGNORECASE), "EDC"),
     (re.compile(r"\bedc\b", re.IGNORECASE), "EDC"),
     (re.compile(r"\bextrait\s+de\s+parfum\b", re.IGNORECASE), "Extrait"),
+    (re.compile(r"\bextract\s+de\s+parfum\b", re.IGNORECASE), "Extrait"),
     (re.compile(r"\bextrait\b", re.IGNORECASE), "Extrait"),
+    (re.compile(r"\bextract\b", re.IGNORECASE), "Extrait"),
     (re.compile(r"\bcologne\b", re.IGNORECASE), "EDC"),
     (re.compile(r"\bparfum\b", re.IGNORECASE), "Parfum"),
 ]

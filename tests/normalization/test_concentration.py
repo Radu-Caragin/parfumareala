@@ -18,6 +18,10 @@ from app.normalization.concentration import extract_concentration, strip_concent
         ("Parfum", "Parfum"),
         ("Extrait de Parfum", "Extrait"),
         ("Extrait", "Extrait"),
+        ("Extract de Parfum", "Extrait"),
+        ("extract de parfum", "Extrait"),
+        ("Extract", "Extrait"),
+        ("Nishane Ani Extract de parfum 50 ml", "Extrait"),
         ("EDC", "EDC"),
         ("Eau de Cologne", "EDC"),
         ("Cologne", "EDC"),
@@ -34,3 +38,14 @@ def test_extract_concentration(raw, expected):
 def test_strip_concentration_tokens_removes_matched_phrases():
     assert "parfum" not in strip_concentration_tokens("erba gold apa de parfum 50 ml")
     assert "erba gold" in strip_concentration_tokens("erba gold apa de parfum 50 ml")
+
+
+def test_strip_concentration_tokens_removes_romanian_extract_spelling():
+    # Regression: "extract de parfum" (Romanian) only had its "parfum"
+    # word stripped by the bare fallback, leaving "extract de" behind as
+    # noise - which was enough to drag a short perfume name's fuzzy-match
+    # score during candidate discovery below the usable threshold.
+    stripped = strip_concentration_tokens("ani extract de parfum 50 ml")
+    assert "extract" not in stripped
+    assert "parfum" not in stripped
+    assert "ani" in stripped
