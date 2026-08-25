@@ -18,7 +18,7 @@ def test_seed_creates_known_stores(db_session):
     stores = stores_repo.list_all(db_session)
     slugs = {s.slug for s in stores}
 
-    assert slugs == {"fragranza", "parfimo", "esentedelux"}
+    assert slugs == {"fragranza", "parfimo", "esentedelux", "vivantis", "notino"}
     assert all(s.enabled is True for s in stores)
 
 
@@ -26,7 +26,7 @@ def test_seed_is_idempotent(db_session):
     seed_initial_stores(db_session)
     seed_initial_stores(db_session)
 
-    assert len(stores_repo.list_all(db_session)) == 3
+    assert len(stores_repo.list_all(db_session)) == 5
 
 
 def test_create_perfume_and_variant(db_session):

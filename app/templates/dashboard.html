@@ -7,7 +7,7 @@
     <h1>Monitored perfumes</h1>
     <div class="header-actions">
         <a href="/perfumes/new" class="button secondary">Add perfume</a>
-        {% if perfumes %}
+        {% if has_any_perfumes and not check_progress %}
         <form
             method="post"
             action="/check-all"
@@ -20,9 +20,41 @@
     </div>
 </div>
 
-{% if perfumes %}
+{% if check_progress %}
+{% include "partials/check_progress.html" %}
+{% endif %}
+
+{% if has_any_perfumes %}
+<form method="get" action="/" class="toolbar">
+    <label>
+        Sort by
+        <select name="sort" onchange="this.form.submit()">
+            <option value="name" {{ "selected" if sort == "name" }}>Name</option>
+            <option value="best_price" {{ "selected" if sort == "best_price" }}>Best price</option>
+            <option value="last_checked" {{ "selected" if sort == "last_checked" }}>Last checked</option>
+        </select>
+    </label>
+    <label>
+        Order
+        <select name="order" onchange="this.form.submit()">
+            <option value="asc" {{ "selected" if order == "asc" }}>Ascending</option>
+            <option value="desc" {{ "selected" if order == "desc" }}>Descending</option>
+        </select>
+    </label>
+    <label>
+        Show
+        <select name="availability" onchange="this.form.submit()">
+            <option value="all" {{ "selected" if availability == "all" }}>All perfumes</option>
+            <option value="in_stock" {{ "selected" if availability == "in_stock" }}>With an offer in stock</option>
+            <option value="not_found" {{ "selected" if availability == "not_found" }}>No offer in stock</option>
+        </select>
+    </label>
+</form>
+
+{% if rows %}
 <div class="perfume-list">
-    {% for perfume in perfumes %}
+    {% for row in rows %}
+    {% set perfume = row.perfume %}
     <article class="perfume-card">
         <h2><a href="/perfumes/{{ perfume.id }}">{{ perfume.brand }} {{ perfume.name }}</a></h2>
         <p class="meta">
@@ -31,6 +63,13 @@
                 {{ perfume.last_checked_at.strftime("%d %b %Y, %H:%M") }}
             {% else %}
                 Never
+            {% endif %}
+        </p>
+        <p class="meta">
+            {% if row.best_price is not none %}
+                Best price: <strong class="best-price-inline">{{ row.best_price }} RON</strong>
+            {% else %}
+                No offer currently in stock
             {% endif %}
         </p>
         <div class="card-actions">
@@ -56,6 +95,9 @@
     </article>
     {% endfor %}
 </div>
+{% else %}
+<p class="empty-state">No perfumes match this filter.</p>
+{% endif %}
 {% else %}
 <p class="empty-state">No perfumes are being monitored yet.</p>
 {% endif %}

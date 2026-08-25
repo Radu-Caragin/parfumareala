@@ -20,6 +20,14 @@ as a sample.
 even though the store's own "Esantion (Mostra)" category turned out to
 contain normal full-size products when checked, so it is NOT used as a
 category-based exclusion (would risk excluding legitimate bottles).
+
+"rezerva"/"rezerve" (found investigating Notino.ro) is Romanian for
+"refill" - same distinction as \\brefill\\b above: only the standalone
+refill cartridge is excluded (confirmed live - Dior's Sauvage EDP refill
+product page states outright "nu poate fi utilizata singura", i.e. "can't
+be used alone"), never a normal bottle that merely happens to support
+refilling (that's described as "reincarcabil"/"refillable" instead, a
+different word entirely, so no overlap risk).
 """
 
 import re
@@ -39,6 +47,7 @@ _EXCLUSION_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bdecant\w*\b", re.IGNORECASE), "decant"),
     (re.compile(r"\bminiatur\w*\b", re.IGNORECASE), "miniature"),
     (re.compile(r"\bbundle\b", re.IGNORECASE), "bundle"),
+    (re.compile(r"\brezerv[ae]\w*\b", re.IGNORECASE), "refill"),
 ]
 
 

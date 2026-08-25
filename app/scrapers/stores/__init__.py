@@ -7,4 +7,6 @@ ensures the decorator runs on startup.
 
 from app.scrapers.stores import esentedelux  # noqa: F401
 from app.scrapers.stores import fragranza  # noqa: F401
+from app.scrapers.stores import notino  # noqa: F401
 from app.scrapers.stores import parfimo  # noqa: F401
+from app.scrapers.stores import vivantis  # noqa: F401

@@ -5,9 +5,16 @@ online perfume stores. Runs entirely on your machine: no external services,
 no authentication, no scheduled/background scraping - every price check is
 something you trigger yourself.
 
-**Supported stores:** Fragranza.ro, Parfimo.ro, EsenteDeLux.ro. Additional
-stores are added one at a time, each as its own isolated scraper module,
-as they're provided.
+**Supported stores:** Fragranza.ro, Parfimo.ro, EsenteDeLux.ro, Vivantis.ro,
+Notino.ro. Additional stores are added one at a time, each as its own
+isolated scraper module, as they're provided.
+
+Note: Vivantis.ro's and Notino.ro's Cloudflare configuration fingerprints
+the TLS/HTTP handshake itself, not just headers - plain httpx gets
+challenged on every request there, so those two scrapers use `curl_cffi`
+(Chrome TLS-fingerprint impersonation) instead, via a shared
+`CurlCffiScraper` base class (`app/scrapers/curl_base.py`). Every other
+store still uses plain httpx.
 
 ## What it does
 

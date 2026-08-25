@@ -4,21 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Perfume Price Tracker{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v={{ static_version('css/style.css') }}">
     <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+    <script>
+        // Applied before paint (no `defer`) to avoid a flash of the
+        // wrong theme. Only sets data-theme when the user has actually
+        // chosen a theme before - otherwise the CSS's own
+        // prefers-color-scheme media query is left to decide, so the OS
+        // setting keeps working for anyone who's never touched the
+        // toggle.
+        (function () {
+            try {
+                var stored = localStorage.getItem("theme");
+                if (stored === "dark" || stored === "light") {
+                    document.documentElement.setAttribute("data-theme", stored);
+                }
+            } catch (e) {
+                // localStorage can throw (private browsing, blocked site
+                // data) - falling back to the OS preference is fine.
+            }
+        })();
+    </script>
 </head>
 <body>
     <header class="site-header">
         <div class="container header-inner">
-            <a class="brand" href="/">Perfume Price Tracker</a>
+            <a class="brand" href="/"><span class="brand-mark">&#10022;</span> Perfume Price Tracker</a>
             <nav>
                 <a href="/" class="{{ 'active' if request.url.path == '/' else '' }}">Dashboard</a>
                 <a href="/stores" class="{{ 'active' if request.url.path.startswith('/stores') else '' }}">Stores</a>
+                <button type="button" class="theme-toggle" id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">&#9680;</button>
             </nav>
         </div>
     </header>
     <main class="container">
         {% block content %}{% endblock %}
     </main>
+    <script>
+        document.getElementById("theme-toggle").addEventListener("click", function () {
+            var root = document.documentElement;
+            var current = root.getAttribute("data-theme");
+            if (current !== "dark" && current !== "light") {
+                // No explicit choice yet - the OS preference has been
+                // deciding. Flip relative to what's actually showing.
+                current = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            }
+            var next = current === "dark" ? "light" : "dark";
+            root.setAttribute("data-theme", next);
+            try {
+                localStorage.setItem("theme", next);
+            } catch (e) {
+                // Nothing to persist to if storage is unavailable - the
+                // choice still applies for the rest of this page view.
+            }
+        });
+    </script>
 </body>
 </html>

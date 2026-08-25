@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.config.settings import get_settings
 from app.database.database import init_db
 from app.routes import alerts, dashboard, perfumes, stores
+from app.scrapers import pool as scraper_pool
 from app.utils.logging import configure_logging
 from app.utils.templates import templates
 
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
     init_db()
     logger.info("Perfume Price Tracker starting up (debug=%s)", settings.DEBUG)
     yield
+    await scraper_pool.close_all()
     logger.info("Perfume Price Tracker shutting down")
 
 

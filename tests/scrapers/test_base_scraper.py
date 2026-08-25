@@ -134,6 +134,29 @@ def test_rate_limit_delays_consecutive_requests():
     assert elapsed >= 0.2
 
 
+def test_concurrent_requests_on_a_shared_instance_still_respect_the_delay():
+    # A scraper instance can now be pooled and reused across overlapping
+    # checks (app/scrapers/pool.py) - two coroutines can call get() on the
+    # SAME instance at once. Without locking the whole request cycle, both
+    # could read _last_request_at before either updates it and fire
+    # together, defeating the spacing this delay exists to guarantee.
+    request_times: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        request_times.append(time.monotonic())
+        return httpx.Response(200)
+
+    async def run():
+        settings = _test_settings(REQUEST_DELAY=0.15)
+        async with _DummyScraper(settings=settings, transport=httpx.MockTransport(handler)) as scraper:
+            await asyncio.gather(scraper.get("/a"), scraper.get("/b"))
+
+    asyncio.run(run())
+
+    assert len(request_times) == 2
+    assert abs(request_times[1] - request_times[0]) >= 0.15
+
+
 def test_min_request_delay_overrides_a_lower_global_setting():
     # A store with a stricter robots.txt Crawl-delay (e.g. 10s) must never
     # be throttled down to the global REQUEST_DELAY if that's lower.

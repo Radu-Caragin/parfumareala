@@ -18,6 +18,19 @@ sqlalchemy>=2.0,<3.0
 # Async HTTP client for scrapers
 httpx>=0.27,<1.0
 
+# Already an indirect dependency of httpx - listed explicitly because
+# BaseScraper imports it directly to build one shared SSL context
+# (loading/parsing the CA bundle is real blocking work, ~0.15-0.2s -
+# reused across every scraper instance instead of redone each time)
+certifi>=2024.2,<2027.0
+
+# Vivantis.ro's Cloudflare configuration fingerprints the TLS/HTTP
+# handshake itself and challenges httpx's signature outright, regardless
+# of headers sent at the application layer - curl_cffi presents a real
+# Chrome TLS fingerprint instead. Used only by that one scraper; every
+# other store scraper still uses plain httpx via BaseScraper.
+curl_cffi>=0.16,<1.0
+
 # HTML parsing for scrapers (Fragranza.ro is server-rendered - no
 # JavaScript execution needed, so BeautifulSoup+lxml is sufficient)
 beautifulsoup4>=4.12,<5.0

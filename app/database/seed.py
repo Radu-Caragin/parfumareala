@@ -32,6 +32,18 @@ _INITIAL_STORES = [
         "base_url": "https://esentedelux.ro/",
         "scraper_identifier": "esentedelux",
     },
+    {
+        "name": "Vivantis.ro",
+        "slug": "vivantis",
+        "base_url": "https://www.vivantis.ro/",
+        "scraper_identifier": "vivantis",
+    },
+    {
+        "name": "Notino.ro",
+        "slug": "notino",
+        "base_url": "https://www.notino.ro/",
+        "scraper_identifier": "notino",
+    },
 ]
 
 

@@ -87,4 +87,11 @@ def test_check_all_with_no_stores_still_marks_perfumes_checked(client, db_sessio
 
     assert response.status_code == 303
     assert response.headers["location"] == "/"
+    # The check now runs in a background task on its own DB session (see
+    # routes/dashboard.py) - it commits its changes, but db_session's own
+    # identity map still holds the pre-check `perfume` object it loaded
+    # above via create(), so a plain re-fetch would silently return that
+    # same stale in-memory copy instead of re-querying. expire_all()
+    # forces the next access to hit the database again.
+    db_session.expire_all()
     assert perfumes_repo.get(db_session, perfume.id).last_checked_at is not None

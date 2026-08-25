@@ -126,6 +126,56 @@ def test_parse_product_reads_all_sibling_variants_from_one_fetch():
     assert check_exclusion(decant_offer.raw_title) == "decant"
 
 
+def test_parse_product_attaches_coupon_only_to_the_primary_offer():
+    # The coupon widget is rendered for whichever single product the page
+    # is currently showing (854810, 100ml) - it must not leak onto a
+    # sibling size (854811, 30ml) pulled from the same JSON blob.
+    candidate = _SearchCandidate(
+        product_id=854810,
+        product_url="https://www.parfimo.ro/lattafa-khamrah-apa-de-parfum-100-ml_z854810/",
+        brand="Lattafa",
+        raw_name="Lattafa Khamrah Apă de parfum 100 ml",
+        core_name="khamrah",
+    )
+    soup = BeautifulSoup(_fixture("product_khamrah_with_coupon.html"), "lxml")
+
+    async def run():
+        async with ParfimoScraper(settings=_test_settings()) as scraper:
+            return await scraper.parse_product(_FetchedProduct(candidate=candidate, soup=soup))
+
+    offers = asyncio.run(run())
+
+    assert len(offers) == 2
+    by_volume = {o.volume_ml: o for o in offers}
+
+    assert by_volume[100].price == Decimal("187.00")
+    assert by_volume[100].coupon_code == "SALEORI30RO"
+    assert by_volume[100].coupon_price == Decimal("130.90")
+
+    assert by_volume[30].coupon_code is None
+    assert by_volume[30].coupon_price is None
+
+
+def test_parse_product_leaves_coupon_fields_none_when_no_widget_present():
+    candidate = _SearchCandidate(
+        product_id=909839,
+        product_url="https://www.parfimo.ro/xerjoff-erba-gold-apa-de-parfum-50-ml_z909839/",
+        brand="Xerjoff",
+        raw_name="Xerjoff Erba Gold Apă de parfum 50 ml",
+        core_name="erba gold",
+    )
+    soup = BeautifulSoup(_fixture("product_erba_gold_50ml.html"), "lxml")
+
+    async def run():
+        async with ParfimoScraper(settings=_test_settings()) as scraper:
+            return await scraper.parse_product(_FetchedProduct(candidate=candidate, soup=soup))
+
+    offers = asyncio.run(run())
+
+    assert offers
+    assert all(o.coupon_code is None and o.coupon_price is None for o in offers)
+
+
 def test_parse_product_detects_out_of_stock():
     candidate = _SearchCandidate(
         product_id=555555,

@@ -149,6 +149,15 @@ class StoreProduct(Base):
     discount_percentage: Mapped[int | None] = mapped_column(Integer, nullable=True)
     availability: Mapped[Availability] = mapped_column(SAEnum(Availability), nullable=False)
 
+    # A store-specific coupon code that unlocks a lower price than
+    # current_price (e.g. Parfimo's "Cu codul X reducere Y%" widget) -
+    # shown as secondary info, never as the tracked/compared price: the
+    # code requires manual entry at checkout and the campaign behind it
+    # can change or disappear at any time, so it isn't a stable value to
+    # base price history or alerts on.
+    coupon_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    coupon_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+
     last_checked_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

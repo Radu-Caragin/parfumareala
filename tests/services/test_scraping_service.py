@@ -15,6 +15,7 @@ from app.database.repositories import scrape_runs as scrape_runs_repo
 from app.database.repositories import store_products as store_products_repo
 from app.database.repositories import variants as variants_repo
 from app.schemas.scraping import ScrapedOffer
+from app.scrapers import pool as scraper_pool
 from app.scrapers.base import BaseScraper
 from app.scrapers.exceptions import RequestError, StoreUnavailable
 from app.scrapers.registry import SCRAPER_REGISTRY
@@ -44,6 +45,36 @@ class _FakeScraper(BaseScraper):
         return self.offers
 
 
+def _make_slow_scraper(slug: str, delay: float) -> type[BaseScraper]:
+    """A fake scraper whose discover_offers() sleeps before returning -
+    used to prove stores are scraped concurrently (see
+    test_check_perfume_scrapes_stores_concurrently), not to test any
+    store-specific behavior.
+    """
+
+    class _SlowFakeScraper(BaseScraper):
+        store_name = slug
+        store_slug = slug
+        base_url = "https://slow.test"
+
+        offers: list[ScrapedOffer] = []
+
+        async def search_perfume(self, brand, perfume_name):
+            return []
+
+        async def fetch_product(self, candidate):
+            return None
+
+        async def parse_product(self, raw_product):
+            return []
+
+        async def discover_offers(self, brand, perfume_name):
+            await asyncio.sleep(delay)
+            return self.offers
+
+    return _SlowFakeScraper
+
+
 @pytest.fixture()
 def fake_store(db_session):
     SCRAPER_REGISTRY["fake-store"] = _FakeScraper
@@ -60,6 +91,12 @@ def fake_store(db_session):
     SCRAPER_REGISTRY.pop("fake-store", None)
     _FakeScraper.offers = []
     _FakeScraper.error = None
+    # scraping_service now gets its scraper from a process-lifetime pool
+    # (app/scrapers/pool.py) keyed by scraper_identifier - without this,
+    # a pooled _FakeScraper instance from this test would still answer
+    # for "fake-store" in the next test even after re-registering a
+    # different class under that same slug.
+    scraper_pool.reset_pool()
 
 
 def _perfume(db_session):
@@ -303,3 +340,51 @@ def test_delisted_variant_from_other_store_is_not_touched(db_session, fake_store
     asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
 
     assert store_products_repo.get(db_session, other_sp.id).availability == Availability.IN_STOCK
+
+
+def test_check_perfume_scrapes_stores_concurrently(db_session):
+    # The whole point of the network/persistence split: two stores each
+    # sleeping 0.2s inside discover_offers() must overlap, not stack up -
+    # total time close to one delay, not the sum of both.
+    import time
+
+    delay = 0.2
+    slug_a, slug_b = "slow-store-a", "slow-store-b"
+    scraper_a = _make_slow_scraper(slug_a, delay)
+    scraper_b = _make_slow_scraper(slug_b, delay)
+    SCRAPER_REGISTRY[slug_a] = scraper_a
+    SCRAPER_REGISTRY[slug_b] = scraper_b
+    try:
+        store_a = Store(
+            name="Slow Store A", slug=slug_a, base_url="https://slow.test",
+            enabled=True, scraper_identifier=slug_a,
+        )
+        store_b = Store(
+            name="Slow Store B", slug=slug_b, base_url="https://slow.test",
+            enabled=True, scraper_identifier=slug_b,
+        )
+        db_session.add_all([store_a, store_b])
+        db_session.commit()
+        db_session.refresh(store_a)
+        db_session.refresh(store_b)
+
+        perfume = _perfume(db_session)
+        scraper_a.offers = [_offer(store_slug=slug_a)]
+        scraper_b.offers = [_offer(store_slug=slug_b, product_url="https://slow.test/other")]
+
+        start = time.monotonic()
+        asyncio.run(scraping_service.check_perfume(db_session, perfume, [store_a, store_b]))
+        elapsed = time.monotonic() - start
+
+        assert elapsed < delay * 1.5  # concurrent: ~1 delay, not 2
+
+        # Both stores' offers must still be correctly persisted - the
+        # concurrency doesn't come at the cost of losing either result.
+        variants = variants_repo.list_for_perfume(db_session, perfume.id)
+        assert len(variants) == 1
+        store_products = store_products_repo.list_for_variant(db_session, variants[0].id)
+        assert {sp.store_id for sp in store_products} == {store_a.id, store_b.id}
+    finally:
+        SCRAPER_REGISTRY.pop(slug_a, None)
+        SCRAPER_REGISTRY.pop(slug_b, None)
+        scraper_pool.reset_pool()

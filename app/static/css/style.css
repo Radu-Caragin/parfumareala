@@ -1,12 +1,91 @@
 :root {
-    --color-bg: #f7f7f8;
+    --color-bg: #f7f4ef;
     --color-surface: #ffffff;
-    --color-border: #e2e2e5;
-    --color-text: #1a1a1e;
-    --color-text-muted: #6b6b73;
-    --color-primary: #2f6f4f;
-    --color-primary-hover: #255a40;
-    --radius: 8px;
+    --color-surface-alt: #faf7f2;
+    --color-border: #e8e0d3;
+    --color-text: #2a231e;
+    --color-text-muted: #8a7f72;
+    --color-primary: #9c3b56;
+    --color-primary-hover: #7e2f45;
+    --color-primary-soft: #f6e9ed;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 1px 2px rgba(42, 35, 30, 0.06), 0 1px 1px rgba(42, 35, 30, 0.04);
+    --shadow-md: 0 8px 24px rgba(42, 35, 30, 0.10), 0 2px 6px rgba(42, 35, 30, 0.06);
+    --font-heading: "Playfair Display", Georgia, "Times New Roman", serif;
+    --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    --color-success-bg: #e6f4ea;
+    --color-success-fg: #1e7e34;
+    --color-warning-bg: #fff4e5;
+    --color-warning-fg: #b26a00;
+    --color-danger-bg: #fdecea;
+    --color-danger-fg: #a12622;
+    --color-danger-border: #f5c6cb;
+    --color-info-bg: #eaf1fb;
+    --color-info-border: #c3d9f5;
+    --color-info-fg: #2f5fa8;
+    --color-muted-bg: #f1ece3;
+    --color-muted-fg: #8a7f72;
+}
+
+/* Follows the OS preference by default; a manual choice (data-theme on
+   <html>, applied by the inline script in base.html before paint, and
+   persisted to localStorage) always wins over it in either direction. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --color-bg: #17141a;
+        --color-surface: #211d24;
+        --color-surface-alt: #26212a;
+        --color-border: #37313c;
+        --color-text: #f2ede8;
+        --color-text-muted: #a89cae;
+        --color-primary: #e28aa0;
+        --color-primary-hover: #eba3b4;
+        --color-primary-soft: #3a2530;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+        --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+
+        --color-success-bg: #17301f;
+        --color-success-fg: #6fcf97;
+        --color-warning-bg: #332405;
+        --color-warning-fg: #f0b429;
+        --color-danger-bg: #3a1c1c;
+        --color-danger-fg: #f28b82;
+        --color-danger-border: #5c2b2b;
+        --color-info-bg: #1c2b40;
+        --color-info-border: #2e4666;
+        --color-info-fg: #8fb8ec;
+        --color-muted-bg: #2a2530;
+        --color-muted-fg: #a89cae;
+    }
+}
+
+:root[data-theme="dark"] {
+    --color-bg: #17141a;
+    --color-surface: #211d24;
+    --color-surface-alt: #26212a;
+    --color-border: #37313c;
+    --color-text: #f2ede8;
+    --color-text-muted: #a89cae;
+    --color-primary: #e28aa0;
+    --color-primary-hover: #eba3b4;
+    --color-primary-soft: #3a2530;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+
+    --color-success-bg: #17301f;
+    --color-success-fg: #6fcf97;
+    --color-warning-bg: #332405;
+    --color-warning-fg: #f0b429;
+    --color-danger-bg: #3a1c1c;
+    --color-danger-fg: #f28b82;
+    --color-danger-border: #5c2b2b;
+    --color-info-bg: #1c2b40;
+    --color-info-border: #2e4666;
+    --color-info-fg: #8fb8ec;
+    --color-muted-bg: #2a2530;
+    --color-muted-fg: #a89cae;
 }
 
 * {
@@ -15,14 +94,19 @@
 
 body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-body);
     background: var(--color-bg);
     color: var(--color-text);
-    line-height: 1.5;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+}
+
+a {
+    color: var(--color-primary);
 }
 
 .container {
-    max-width: 960px;
+    max-width: 980px;
     margin: 0 auto;
     padding: 0 1.5rem;
 }
@@ -30,28 +114,50 @@ body {
 .site-header {
     background: var(--color-surface);
     border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: saturate(180%) blur(6px);
 }
 
 .header-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.5rem;
+    padding: 1.1rem 1.5rem;
 }
 
 .brand {
+    font-family: var(--font-heading);
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1.25rem;
     color: var(--color-text);
     text-decoration: none;
+    letter-spacing: 0.01em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.brand-mark {
+    color: var(--color-primary);
+    font-size: 1.1rem;
+}
+
+nav {
+    display: flex;
+    align-items: center;
 }
 
 nav a {
     color: var(--color-text-muted);
     text-decoration: none;
-    margin-left: 1.5rem;
-    padding-bottom: 0.25rem;
+    margin-left: 1.75rem;
+    padding-bottom: 0.3rem;
     border-bottom: 2px solid transparent;
+    font-size: 0.92rem;
+    font-weight: 500;
+    transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 nav a.active,
@@ -61,11 +167,26 @@ nav a:hover {
 }
 
 main {
-    padding: 2rem 1.5rem;
+    padding: 2.5rem 1.5rem 4rem;
+}
+
+h1, h2, h3 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    letter-spacing: 0.005em;
 }
 
 h1 {
     margin-top: 0;
+    font-size: 1.9rem;
+}
+
+h2 {
+    font-size: 1.3rem;
+}
+
+h3 {
+    font-size: 1.05rem;
 }
 
 .perfume-list {
@@ -77,12 +198,29 @@ h1 {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    padding: 1rem 1.25rem;
+    padding: 1.25rem 1.5rem;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.perfume-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    border-color: var(--color-primary-soft);
 }
 
 .perfume-card h2 {
-    margin: 0 0 0.25rem;
-    font-size: 1.1rem;
+    margin: 0 0 0.35rem;
+    font-size: 1.15rem;
+}
+
+.perfume-card h2 a {
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+.perfume-card h2 a:hover {
+    color: var(--color-primary);
 }
 
 .meta {
@@ -93,8 +231,12 @@ h1 {
 
 .empty-state {
     color: var(--color-text-muted);
-    padding: 2rem 0;
+    padding: 4rem 1rem;
     text-align: center;
+    font-size: 1.02rem;
+    background: var(--color-surface);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius);
 }
 
 .button {
@@ -102,40 +244,60 @@ h1 {
     background: var(--color-primary);
     color: #fff;
     border: none;
-    border-radius: var(--radius);
-    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 1.1rem;
     text-decoration: none;
     font-size: 0.9rem;
+    font-weight: 600;
     font-family: inherit;
     cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
 .button:hover {
     background: var(--color-primary-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.button:active {
+    transform: translateY(0);
+}
+
+.button:disabled {
+    opacity: 0.6;
+    cursor: default;
+    transform: none;
 }
 
 .button.secondary {
-    background: transparent;
+    background: var(--color-surface);
     color: var(--color-text);
     border: 1px solid var(--color-border);
+    box-shadow: none;
 }
 
 .button.secondary:hover {
-    background: var(--color-bg);
+    background: var(--color-surface-alt);
+    border-color: var(--color-primary-soft);
+    box-shadow: none;
 }
 
 .page-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
     gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .card-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
-    margin-top: 0.75rem;
+    margin-top: 1rem;
 }
 
 .perfume-form {
@@ -143,20 +305,35 @@ h1 {
     flex-direction: column;
     gap: 0.25rem;
     max-width: 420px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
 }
 
 .perfume-form label {
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     margin-top: 0.75rem;
+    color: var(--color-text-muted);
 }
 
 .perfume-form input[type="text"] {
-    padding: 0.5rem 0.75rem;
+    padding: 0.6rem 0.8rem;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm);
     font-size: 1rem;
     font-family: inherit;
+    background: var(--color-bg);
+    color: var(--color-text);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.perfume-form input[type="text"]:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
 .form-actions {
@@ -166,11 +343,12 @@ h1 {
 }
 
 .error {
-    background: #fdecea;
-    color: #a12622;
-    border: 1px solid #f5c6cb;
-    border-radius: var(--radius);
-    padding: 0.5rem 0.75rem;
+    background: var(--color-danger-bg);
+    color: var(--color-danger-fg);
+    border: 1px solid var(--color-danger-border);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.85rem;
+    font-size: 0.9rem;
 }
 
 .store-list {
@@ -186,34 +364,37 @@ h1 {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    padding: 1rem 1.25rem;
+    padding: 1.25rem 1.5rem;
+    box-shadow: var(--shadow-sm);
 }
 
 .store-row h2 {
-    margin: 0 0 0.25rem;
+    margin: 0 0 0.35rem;
     font-size: 1.1rem;
 }
 
 .badge {
     display: inline-block;
-    padding: 0.15rem 0.5rem;
+    padding: 0.2rem 0.65rem;
     border-radius: 999px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
+    letter-spacing: 0.01em;
 }
 
 .badge-enabled {
-    background: #e6f4ea;
-    color: #1e7e34;
+    background: var(--color-success-bg);
+    color: var(--color-success-fg);
 }
 
 .badge-disabled {
-    background: #f1f1f3;
-    color: #6b6b73;
+    background: var(--color-muted-bg);
+    color: var(--color-muted-fg);
 }
 
 .header-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.75rem;
 }
 
@@ -222,59 +403,69 @@ h1 {
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.6rem;
 }
 
 .store-status-list li {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.9rem;
 }
 
 .status-badge {
     display: inline-block;
-    padding: 0.15rem 0.5rem;
+    padding: 0.2rem 0.65rem;
     border-radius: 999px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
 }
 
 .status-in_stock {
-    background: #e6f4ea;
-    color: #1e7e34;
+    background: var(--color-success-bg);
+    color: var(--color-success-fg);
 }
 
 .status-out_of_stock {
-    background: #fff4e5;
-    color: #b26a00;
+    background: var(--color-warning-bg);
+    color: var(--color-warning-fg);
 }
 
 .status-not_found {
-    background: #f1f1f3;
-    color: #6b6b73;
+    background: var(--color-muted-bg);
+    color: var(--color-muted-fg);
 }
 
 .status-scraping_error,
 .status-store_unavailable {
-    background: #fdecea;
-    color: #a12622;
+    background: var(--color-danger-bg);
+    color: var(--color-danger-fg);
 }
 
 .variant-block {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    padding: 1rem 1.25rem;
-    margin-bottom: 1rem;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow-sm);
 }
 
 .variant-block h3 {
-    margin: 0 0 0.75rem;
-    font-size: 1rem;
+    margin: 0 0 0.85rem;
+    font-size: 1.02rem;
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-weight: 700;
 }
 
 .table-scroll {
     overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
 }
 
 .offers-table {
@@ -285,9 +476,26 @@ h1 {
 .offers-table th,
 .offers-table td {
     text-align: left;
-    padding: 0.5rem 0.75rem;
+    padding: 0.65rem 0.9rem;
     border-bottom: 1px solid var(--color-border);
     font-size: 0.9rem;
+}
+
+.offers-table th {
+    background: var(--color-surface-alt);
+    color: var(--color-text-muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.offers-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.offers-table tbody tr:hover {
+    background: var(--color-surface-alt);
 }
 
 .old-price {
@@ -300,36 +508,51 @@ h1 {
 .discount-badge {
     display: inline-block;
     margin-left: 0.5rem;
-    padding: 0.1rem 0.4rem;
+    padding: 0.1rem 0.45rem;
     border-radius: 999px;
-    background: #fdecea;
-    color: #a12622;
+    background: var(--color-danger-bg);
+    color: var(--color-danger-fg);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
+}
+
+.coupon-price {
+    display: inline-block;
+    margin-top: 0.3rem;
+    font-size: 0.8rem;
+    color: var(--color-success-fg);
+    font-weight: 500;
 }
 
 .best-price-row {
-    background: #e6f4ea;
+    background: var(--color-primary-soft);
 }
 
 .best-price-banner {
-    margin: 0.75rem 0 0;
-    font-size: 0.9rem;
-    color: #1e7e34;
+    margin: 0.85rem 0 0;
+    font-size: 0.92rem;
+    color: var(--color-success-fg);
+}
+
+.best-price-inline {
+    color: var(--color-success-fg);
 }
 
 .alert-banner {
-    background: #fff8e1;
-    border: 1px solid #f0c36d;
+    background: var(--color-info-bg);
+    border: 1px solid var(--color-info-border);
     border-radius: var(--radius);
-    padding: 1rem 1.25rem;
-    margin-bottom: 1.5rem;
+    padding: 1.15rem 1.4rem;
+    margin-bottom: 1.75rem;
+    box-shadow: var(--shadow-sm);
 }
 
 .alert-banner h2 {
-    margin: 0 0 0.5rem;
-    font-size: 1rem;
-    color: #8a6100;
+    margin: 0 0 0.6rem;
+    font-size: 1.02rem;
+    color: var(--color-info-fg);
+    font-family: var(--font-body);
+    font-weight: 700;
 }
 
 .alert-banner-item {
@@ -346,8 +569,8 @@ h1 {
 }
 
 .variant-alerts {
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
+    margin-top: 0.9rem;
+    padding-top: 0.9rem;
     border-top: 1px solid var(--color-border);
 }
 
@@ -356,40 +579,171 @@ h1 {
     align-items: center;
     justify-content: space-between;
     font-size: 0.85rem;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
 }
 
 .alert-form {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.6rem;
     font-size: 0.85rem;
 }
 
 .alert-form input[type="number"] {
     width: 100px;
-    padding: 0.3rem 0.5rem;
+    padding: 0.35rem 0.55rem;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm);
     font-family: inherit;
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.alert-form input[type="number"]:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
 .button.small {
-    padding: 0.25rem 0.6rem;
+    padding: 0.3rem 0.65rem;
     font-size: 0.8rem;
 }
 
 .error-page {
     text-align: center;
-    padding: 3rem 0;
+    padding: 4rem 1rem;
 }
 
 .error-page h1 {
-    font-size: 3rem;
+    font-size: 3.5rem;
     margin-bottom: 0.5rem;
-    color: var(--color-text-muted);
+    color: var(--color-primary);
 }
 
 .error-page p {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
+    color: var(--color-text-muted);
+}
+
+.theme-toggle {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    width: 2.1rem;
+    height: 2.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 1.25rem;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.theme-toggle:hover {
+    background: var(--color-surface-alt);
+    border-color: var(--color-primary-soft);
+    transform: rotate(12deg);
+}
+
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    align-items: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1.15rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.88rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.toolbar select {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+
+.toolbar select:hover,
+.toolbar select:focus {
+    border-color: var(--color-primary);
+    outline: none;
+}
+
+.check-progress {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 0.9rem 1.15rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.check-progress-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.6rem 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.check-progress-item {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: var(--color-muted-bg);
+    color: var(--color-muted-fg);
+}
+
+.check-progress-checking {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-fg);
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.check-progress-checking::before {
+    content: "";
+    position: absolute;
+    left: 0.65rem;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    margin-top: -3px;
+    border-radius: 999px;
+    background: currentColor;
+    animation: pulse-dot 1.1s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 0.35; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+.check-progress-done {
+    background: var(--color-success-bg);
+    color: var(--color-success-fg);
 }

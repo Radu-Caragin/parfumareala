@@ -8,8 +8,9 @@ tester) is compared strictly against its own StoreProduct rows.
 """
 
 from dataclasses import dataclass
+from decimal import Decimal
 
-from app.database.models import Availability, PerfumeVariant, StoreProduct
+from app.database.models import Availability, Perfume, PerfumeVariant, StoreProduct
 
 
 @dataclass(frozen=True)
@@ -32,3 +33,16 @@ def compare_variant(variant: PerfumeVariant) -> VariantComparison:
 
 def compare_perfume(variants: list[PerfumeVariant]) -> list[VariantComparison]:
     return [compare_variant(variant) for variant in variants]
+
+
+def cheapest_price_for_perfume(perfume: Perfume) -> Decimal | None:
+    """The lowest in-stock price across every one of a perfume's variants
+    (any concentration/volume/tester combination), for the dashboard's
+    "sort by best price" - or None if nothing is currently in stock
+    anywhere. Never mixes variants together for matching purposes (that
+    rule is about which offers can be merged into one price - this only
+    picks the smallest number across already-separate variant results).
+    """
+    best_offers = (compare_variant(variant).best_offer for variant in perfume.variants)
+    prices = [offer.current_price for offer in best_offers if offer is not None]
+    return min(prices) if prices else None

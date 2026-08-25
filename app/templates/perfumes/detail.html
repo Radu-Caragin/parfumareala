@@ -7,6 +7,9 @@
 
 <div class="page-header">
     <h1>{{ perfume.brand }} {{ perfume.name }}</h1>
+    {% if check_progress %}
+    {% include "partials/check_progress.html" %}
+    {% else %}
     <form
         method="post"
         action="/perfumes/{{ perfume.id }}/check"
@@ -14,6 +17,7 @@
     >
         <button type="submit" class="button">Check prices</button>
     </form>
+    {% endif %}
 </div>
 
 <p class="meta">
@@ -103,6 +107,9 @@
                     {% endif %}
                     {% if sp.discount_percentage %}
                         <span class="discount-badge">-{{ sp.discount_percentage }}%</span>
+                    {% endif %}
+                    {% if sp.coupon_price %}
+                        <br><span class="coupon-price">cu codul {{ sp.coupon_code }}: {{ sp.coupon_price }} {{ sp.currency }}</span>
                     {% endif %}
                 </td>
                 <td>{{ "In stock" if sp.availability.value == "in_stock" else "Out of stock" }}</td>

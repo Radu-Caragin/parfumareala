@@ -60,6 +60,24 @@ merged - any genuine "last-visited" pollution is harmless, since unrelated
 products it might add are already rejected downstream by
 matching_service's brand/name matching, and that risk is far smaller than
 silently dropping the real product's own data again.
+
+2026-08-25 coupon widget note: some (not all) product pages also render a
+"Cu codul X reducere Y%" banner (`[data-product-add-coupon-to-cart]`) with
+the resulting discounted price already computed server-side as static
+text - confirmed present with a real, working code/price on one tracked
+product (Lattafa Khamrah, 30% off) and absent on others (Dior Sauvage, BDK
+Rouge Smoking) on the same site, and the code/percentage differs between
+products that do have it (Xerjoff Erba Gold's code was a different,
+smaller discount) - this is a variable promotional campaign, not a fixed
+product attribute. It also isn't part of the productdataprinter JSON
+above, since it's rendered for whichever single product the page is
+currently showing, not per sibling - only attached to the offer whose
+product_id matches the page's own candidate, never to sibling
+sizes/testers pulled from the same JSON blob. Surfaced as a secondary
+coupon_code/coupon_price pair on ScrapedOffer, deliberately kept separate
+from price/old_price: the code requires manual entry at checkout and the
+campaign behind it can disappear at any time, so it isn't a stable value
+to base price history or alerts on (see StoreProduct.coupon_code).
 """
 
 import json
@@ -76,6 +94,7 @@ from rapidfuzz import fuzz
 from app.normalization.brand import normalize_brand
 from app.normalization.concentration import extract_concentration
 from app.normalization.name import extract_core_name, normalize_name
+from app.normalization.price import parse_price
 from app.normalization.tester import is_tester
 from app.normalization.text_utils import strip_diacritics
 from app.normalization.volume import extract_volume_ml
@@ -220,12 +239,35 @@ class ParfimoScraper(BaseScraper):
             logger.debug("%s: no product data script found for %s", self.store_slug, candidate.product_url)
             return []
 
-        offers = [
-            offer
-            for entry in self._select_cheapest_per_product(entries)
-            if (offer := self._build_offer_from_entry(entry)) is not None
-        ]
+        coupon = self._extract_coupon(raw_product.soup)
+
+        offers = []
+        for entry in self._select_cheapest_per_product(entries):
+            is_primary_product = entry.get("product_id") == candidate.product_id
+            coupon_code, coupon_price = coupon if (coupon is not None and is_primary_product) else (None, None)
+            offer = self._build_offer_from_entry(entry, coupon_code=coupon_code, coupon_price=coupon_price)
+            if offer is not None:
+                offers.append(offer)
         return offers
+
+    @staticmethod
+    def _extract_coupon(soup: BeautifulSoup) -> tuple[str, Decimal] | None:
+        """Reads the "Cu codul X reducere Y%" widget when present - see the
+        module docstring's 2026-08-25 note."""
+        widget = soup.select_one("[data-product-add-coupon-to-cart]")
+        if widget is None:
+            return None
+
+        code = widget.get("data-product-add-coupon-to-cart")
+        price_el = widget.select_one("p.h4")
+        if not code or price_el is None:
+            return None
+
+        price = parse_price(price_el.get_text())
+        if price is None:
+            return None
+
+        return code, price
 
     @staticmethod
     def _collect_product_data_entries(soup: BeautifulSoup) -> dict:
@@ -259,7 +301,9 @@ class ParfimoScraper(BaseScraper):
                 best[product_id] = entry
         return list(best.values())
 
-    def _build_offer_from_entry(self, entry: dict) -> ScrapedOffer | None:
+    def _build_offer_from_entry(
+        self, entry: dict, *, coupon_code: str | None = None, coupon_price: Decimal | None = None
+    ) -> ScrapedOffer | None:
         item_name = entry.get("item_name")
         brand = entry.get("item_brand")
         url = entry.get("url")
@@ -295,6 +339,8 @@ class ParfimoScraper(BaseScraper):
             old_price=old_price,
             availability=self._parse_availability(entry.get("availability", "")),
             currency="RON",
+            coupon_code=coupon_code,
+            coupon_price=coupon_price,
         )
 
     @staticmethod

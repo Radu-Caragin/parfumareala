@@ -35,4 +35,10 @@ class ScrapedOffer(BaseModel):
     currency: str = "RON"
     availability: Literal["in_stock", "out_of_stock"]
 
+    # A store-specific coupon code unlocking a lower price than `price`
+    # (see StoreProduct.coupon_code for why this is kept separate from
+    # price/old_price rather than folded into them).
+    coupon_code: str | None = None
+    coupon_price: Decimal | None = None
+
     scraped_at: datetime = Field(default_factory=utcnow)

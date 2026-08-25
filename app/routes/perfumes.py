@@ -1,9 +1,10 @@
 """Routes for managing monitored perfumes: add, edit, delete, detail page."""
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from app.database import database as database_module
 from app.database.database import get_db
 from app.database.models import Perfume, StoreProduct
 from app.database.repositories import perfumes as perfumes_repo
@@ -13,11 +14,33 @@ from app.database.repositories import store_products as store_products_repo
 from app.database.repositories import stores as stores_repo
 from app.database.repositories import variants as variants_repo
 from app.services import alert_service, scraping_service
+from app.services import progress as progress_service
 from app.services.comparison_service import compare_perfume
 from app.services.perfume_service import create_perfume, update_perfume
 from app.utils.templates import templates
 
 router = APIRouter()
+
+
+def _check_progress_key(perfume_id: int) -> str:
+    return f"perfume:{perfume_id}"
+
+
+async def _run_check_perfume(perfume_id: int, progress_key: str) -> None:
+    """Runs in the background, after the triggering request has already
+    redirected the browser away - see check_perfume_route. Uses its own
+    DB session: the request-scoped one from Depends(get_db) is closed by
+    the time this runs.
+    """
+    db = database_module.get_background_session()
+    try:
+        perfume = perfumes_repo.get(db, perfume_id)
+        if perfume is None:
+            return
+        enabled_stores = stores_repo.list_enabled(db)
+        await scraping_service.check_perfume(db, perfume, enabled_stores, progress_key=progress_key)
+    finally:
+        db.close()
 
 
 def _get_perfume_or_404(db: Session, perfume_id: int) -> Perfume:
@@ -89,6 +112,10 @@ async def perfume_detail(request: Request, perfume_id: int, db: Session = Depend
     for variant in variants:
         triggered_alerts.extend(alert_service.current_alert_status(variant))
 
+    check_progress = progress_service.get(_check_progress_key(perfume_id))
+    if check_progress is not None and check_progress.done:
+        check_progress = None
+
     return templates.TemplateResponse(
         request,
         "perfumes/detail.html",
@@ -97,16 +124,32 @@ async def perfume_detail(request: Request, perfume_id: int, db: Session = Depend
             "comparisons": comparisons,
             "store_results": store_results,
             "triggered_alerts": triggered_alerts,
+            "check_progress": check_progress,
+            "check_status_url": f"/perfumes/{perfume_id}/check-status",
         },
     )
 
 
 @router.post("/perfumes/{perfume_id}/check")
-async def check_perfume_route(perfume_id: int, db: Session = Depends(get_db)):
+async def check_perfume_route(perfume_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     perfume = _get_perfume_or_404(db, perfume_id)
-    enabled_stores = stores_repo.list_enabled(db)
-    await scraping_service.check_perfume(db, perfume, enabled_stores)
+    background_tasks.add_task(_run_check_perfume, perfume_id, _check_progress_key(perfume_id))
     return RedirectResponse(url=f"/perfumes/{perfume.id}", status_code=303)
+
+
+@router.get("/perfumes/{perfume_id}/check-status", response_class=HTMLResponse)
+async def check_perfume_status(request: Request, perfume_id: int) -> HTMLResponse:
+    key = _check_progress_key(perfume_id)
+    run_progress = progress_service.get(key)
+    if run_progress is None or run_progress.done:
+        progress_service.clear(key)
+        return HTMLResponse(content="", headers={"HX-Refresh": "true"})
+
+    return templates.TemplateResponse(
+        request,
+        "partials/check_progress.html",
+        {"check_progress": run_progress, "check_status_url": f"/perfumes/{perfume_id}/check-status"},
+    )
 
 
 @router.get("/perfumes/{perfume_id}/history/{store_product_id}", response_class=HTMLResponse)

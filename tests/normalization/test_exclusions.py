@@ -20,6 +20,8 @@ from app.normalization.exclusions import check_exclusion, is_excluded
         "Xerjoff Erba Gold decant 5ml",
         "Xerjoff Erba Gold esantion 2ml",
         "Xerjoff Erba Gold mostra 2ml",
+        "DIOR Sauvage Eau de Parfum Rezerva 300 ml",
+        "DIOR Sauvage 300 ml Rezerve",
     ],
 )
 def test_excluded_products(raw):
@@ -33,6 +35,7 @@ def test_excluded_products(raw):
         "Xerjoff Erba Gold EDP 100 ml Tester",
         "Sticla refillable Xerjoff Erba Gold 100ml",
         "Dior Sauvage EDT 100 ml",
+        "Dior Sauvage Eau de Parfum reincarcabil pentru barbati",
     ],
 )
 def test_valid_products_not_excluded(raw):
@@ -42,3 +45,4 @@ def test_valid_products_not_excluded(raw):
 def test_check_exclusion_returns_reason():
     assert check_exclusion("Xerjoff Erba Gold Refill 100ml") == "refill"
     assert check_exclusion("Xerjoff Erba Gold decant 5ml") == "decant"
+    assert check_exclusion("DIOR Sauvage 300 ml Rezerve") == "refill"

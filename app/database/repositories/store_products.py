@@ -40,6 +40,8 @@ def upsert_offer(
     currency: str,
     discount_percentage: int | None,
     availability: Availability,
+    coupon_code: str | None = None,
+    coupon_price: Decimal | None = None,
 ) -> StoreProduct:
     now = utcnow()
     store_product = get_for_store_and_variant(db, store_id=store_id, variant_id=variant_id)
@@ -60,6 +62,10 @@ def upsert_offer(
     store_product.currency = currency
     store_product.discount_percentage = discount_percentage
     store_product.availability = availability
+    # Always overwritten (not left alone when None) so a coupon from a
+    # previous check that's no longer on the page doesn't linger forever.
+    store_product.coupon_code = coupon_code
+    store_product.coupon_price = coupon_price
     store_product.last_checked_at = now
     store_product.last_seen_at = now
 
