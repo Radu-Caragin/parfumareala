@@ -42,10 +42,13 @@ def get(db: Session, variant_id: int) -> PerfumeVariant | None:
 
 
 def list_for_perfume(db: Session, perfume_id: int) -> list[PerfumeVariant]:
+    # Largest bottle first, regardless of concentration (EDT/EDP/... never
+    # splits the list into separate size-ordered groups) - concentration
+    # and tester are only tie-breakers for two variants of the same size.
     return list(
         db.scalars(
             select(PerfumeVariant)
             .where(PerfumeVariant.perfume_id == perfume_id)
-            .order_by(PerfumeVariant.concentration, PerfumeVariant.volume_ml, PerfumeVariant.tester)
+            .order_by(PerfumeVariant.volume_ml.desc(), PerfumeVariant.concentration, PerfumeVariant.tester)
         )
     )

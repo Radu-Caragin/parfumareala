@@ -68,6 +68,28 @@ def test_variant_identity_is_distinct(db_session):
     assert len(ids) == 4  # concentration, volume and tester status must never collapse together
 
 
+def test_list_for_perfume_orders_by_volume_descending_regardless_of_concentration(db_session):
+    perfume = perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"
+    )
+    # Created out of order and interleaved across concentrations on
+    # purpose - a smaller EDT must never sort ahead of a larger EDP just
+    # because "EDP" < "EDT" alphabetically.
+    variants_repo.get_or_create(db_session, perfume_id=perfume.id, concentration="EDT", volume_ml=50, tester=False)
+    variants_repo.get_or_create(db_session, perfume_id=perfume.id, concentration="EDP", volume_ml=100, tester=False)
+    variants_repo.get_or_create(db_session, perfume_id=perfume.id, concentration="EDT", volume_ml=100, tester=False)
+    variants_repo.get_or_create(db_session, perfume_id=perfume.id, concentration="EDP", volume_ml=30, tester=False)
+
+    ordered = variants_repo.list_for_perfume(db_session, perfume.id)
+
+    assert [(v.volume_ml, v.concentration) for v in ordered] == [
+        (100, "EDP"),
+        (100, "EDT"),
+        (50, "EDT"),
+        (30, "EDP"),
+    ]
+
+
 def test_price_history_only_recorded_on_change(db_session):
     seed_initial_stores(db_session)
     store = stores_repo.get_by_slug(db_session, "fragranza")
