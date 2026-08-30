@@ -2,10 +2,11 @@
 
 from decimal import Decimal
 
-from app.database.models import Availability
+from app.database.models import Availability, RunType
 from app.database.repositories import alerts as alerts_repo
 from app.database.repositories import perfumes as perfumes_repo
 from app.database.repositories import prices as prices_repo
+from app.database.repositories import scrape_runs as scrape_runs_repo
 from app.database.repositories import store_products as store_products_repo
 from app.database.repositories import stores as stores_repo
 from app.database.repositories import variants as variants_repo
@@ -18,7 +19,7 @@ def test_seed_creates_known_stores(db_session):
     stores = stores_repo.list_all(db_session)
     slugs = {s.slug for s in stores}
 
-    assert slugs == {"fragranza", "parfimo", "esentedelux", "vivantis", "notino"}
+    assert slugs == {"fragranza", "parfimo", "esentedelux", "vivantis", "notino", "parfumat", "brasty", "koku"}
     assert all(s.enabled is True for s in stores)
 
 
@@ -26,7 +27,7 @@ def test_seed_is_idempotent(db_session):
     seed_initial_stores(db_session)
     seed_initial_stores(db_session)
 
-    assert len(stores_repo.list_all(db_session)) == 5
+    assert len(stores_repo.list_all(db_session)) == 8
 
 
 def test_create_perfume_and_variant(db_session):
@@ -129,6 +130,55 @@ def test_price_history_only_recorded_on_change(db_session):
 
     history = prices_repo.list_for_store_product(db_session, store_product.id)
     assert len(history) == 2
+
+
+def test_list_price_changes_for_run_reports_delta_and_ignores_first_ever_price(db_session):
+    seed_initial_stores(db_session)
+    store = stores_repo.get_by_slug(db_session, "fragranza")
+    perfume = perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"
+    )
+    variant = variants_repo.get_or_create(
+        db_session, perfume_id=perfume.id, concentration="EDP", volume_ml=100, tester=False
+    )
+    store_product = store_products_repo.upsert_offer(
+        db_session, store_id=store.id, variant_id=variant.id,
+        product_url="https://fragranza.ro/x", store_product_identifier=None, product_title="x",
+        price=Decimal("799.00"), old_price=None, currency="RON",
+        discount_percentage=None, availability=Availability.IN_STOCK,
+    )
+
+    run_1 = scrape_runs_repo.start_run(db_session, run_type=RunType.ALL, perfume_count=1, store_count=1)
+    prices_repo.record_if_changed(
+        db_session, store_product_id=store_product.id, scrape_run_id=run_1.id,
+        price=Decimal("799.00"), old_price=None, currency="RON",
+        discount_percentage=None, availability=Availability.IN_STOCK,
+    )
+    # First-ever observation - nothing to compare it against, so it must
+    # never show up as a "change" even though it belongs to a real run.
+    assert prices_repo.list_price_changes_for_run(db_session, run_1.id) == []
+
+    run_2 = scrape_runs_repo.start_run(db_session, run_type=RunType.ALL, perfume_count=1, store_count=1)
+    prices_repo.record_if_changed(
+        db_session, store_product_id=store_product.id, scrape_run_id=run_2.id,
+        price=Decimal("749.00"), old_price=None, currency="RON",
+        discount_percentage=None, availability=Availability.IN_STOCK,
+    )
+
+    changes = prices_repo.list_price_changes_for_run(db_session, run_2.id)
+    assert len(changes) == 1
+    assert changes[0].previous_price == Decimal("799.00")
+    assert changes[0].price == Decimal("749.00")
+    assert changes[0].delta == Decimal("-50.00")
+
+    run_3 = scrape_runs_repo.start_run(db_session, run_type=RunType.ALL, perfume_count=1, store_count=1)
+    prices_repo.record_if_changed(
+        db_session, store_product_id=store_product.id, scrape_run_id=run_3.id,
+        price=Decimal("749.00"), old_price=None, currency="RON",
+        discount_percentage=None, availability=Availability.OUT_OF_STOCK,
+    )
+    # Price unchanged, only availability flipped - not a price change.
+    assert prices_repo.list_price_changes_for_run(db_session, run_3.id) == []
 
 
 def test_alert_lifecycle(db_session):

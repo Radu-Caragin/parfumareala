@@ -26,6 +26,10 @@
 
 {% if has_any_perfumes %}
 <form method="get" action="/" class="toolbar">
+    <label class="toolbar-search">
+        Search
+        <input type="search" name="q" value="{{ q }}" placeholder="Brand or name&hellip;">
+    </label>
     <label>
         Sort by
         <select name="sort" onchange="this.form.submit()">
@@ -47,8 +51,10 @@
             <option value="all" {{ "selected" if availability == "all" }}>All perfumes</option>
             <option value="in_stock" {{ "selected" if availability == "in_stock" }}>With an offer in stock</option>
             <option value="not_found" {{ "selected" if availability == "not_found" }}>No offer in stock</option>
+            <option value="never_checked" {{ "selected" if availability == "never_checked" }}>Never checked</option>
         </select>
     </label>
+    <button type="submit" class="button secondary small">Apply</button>
 </form>
 
 {% if rows %}

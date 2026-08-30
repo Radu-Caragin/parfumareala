@@ -28,6 +28,7 @@ from app.normalization.concentration import extract_concentration, strip_concent
         ("Xerjoff Erba Gold Eau de Parfum 100 ml", "EDP"),
         ("ERBA GOLD Xerjoff 100 ML Apa de Parfum", "EDP"),
         ("Xerjoff Erba Gold 100 ml Apa de Parfum", "EDP"),
+        ("MYSLF L`Absolu - parfém", "Parfum"),
         ("Random Title Without Concentration", None),
     ],
 )
@@ -49,3 +50,19 @@ def test_strip_concentration_tokens_removes_romanian_extract_spelling():
     assert "extract" not in stripped
     assert "parfum" not in stripped
     assert "ani" in stripped
+
+
+def test_strip_concentration_tokens_tolerates_esentedelux_parfume_typo():
+    # Regression: EsenteDeLux misspells "parfum" as "parfume" (trailing e)
+    # on at least one live product title ("Nishane - Hacivat extrait de
+    # parfume unisex") - \bparfum\b doesn't match inside "parfume" (no
+    # word boundary between "m" and "e"), so every "parfum"-ending pattern
+    # left it completely unstripped, leaving "de parfume" as noise that
+    # tanked "hacivat"'s fuzzy-match score below the usable threshold.
+    stripped = strip_concentration_tokens("hacivat extrait de parfume unisex")
+    assert "parfume" not in stripped
+    assert "hacivat" in stripped
+
+    # The correctly-spelled word must still be matched exactly (the fix
+    # only makes the trailing "e" optional, not the boundary check itself).
+    assert extract_concentration("hacivat extrait de parfum unisex") == "Extrait"

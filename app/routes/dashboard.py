@@ -42,6 +42,7 @@ async def dashboard(
     sort: str = "name",
     order: str = "asc",
     availability: str = "all",
+    q: str = "",
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     if sort not in _SORT_KEYS:
@@ -53,10 +54,19 @@ async def dashboard(
         {"perfume": p, "best_price": comparison_service.cheapest_price_for_perfume(p)} for p in perfumes
     ]
 
+    search_term = q.strip().lower()
+    if search_term:
+        rows = [
+            r for r in rows
+            if search_term in r["perfume"].brand.lower() or search_term in r["perfume"].name.lower()
+        ]
+
     if availability == "in_stock":
         rows = [r for r in rows if r["best_price"] is not None]
     elif availability == "not_found":
         rows = [r for r in rows if r["best_price"] is None]
+    elif availability == "never_checked":
+        rows = [r for r in rows if r["perfume"].last_checked_at is None]
 
     if sort == "best_price":
         # Perfumes with no current in-stock offer always sort last,
@@ -86,6 +96,7 @@ async def dashboard(
             "sort": sort,
             "order": order,
             "availability": availability,
+            "q": q,
             "check_progress": check_progress,
             "check_status_url": "/check-all-status",
         },

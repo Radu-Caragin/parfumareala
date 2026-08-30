@@ -6,8 +6,8 @@ no authentication, no scheduled/background scraping - every price check is
 something you trigger yourself.
 
 **Supported stores:** Fragranza.ro, Parfimo.ro, EsenteDeLux.ro, Vivantis.ro,
-Notino.ro. Additional stores are added one at a time, each as its own
-isolated scraper module, as they're provided.
+Notino.ro, Parfumat.ro, Brasty.ro, Koku.ro. Additional stores are added one
+at a time, each as its own isolated scraper module, as they're provided.
 
 Note: Vivantis.ro's and Notino.ro's Cloudflare configuration fingerprints
 the TLS/HTTP handshake itself, not just headers - plain httpx gets

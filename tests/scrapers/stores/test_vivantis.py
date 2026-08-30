@@ -275,6 +275,29 @@ def test_parse_product_populates_old_price_only_when_on_sale():
     assert by_volume[50].old_price is None
 
 
+def test_parse_product_reads_trailing_p_suffix_as_parfum():
+    # Regression: a real, in-stock listing ("Black Orchid - P", confirmed
+    # live) truncates its concentration suffix down to a single letter,
+    # with no other concentration wording anywhere in the name -
+    # extract_concentration() alone finds nothing there, which would
+    # silently drop the whole offer downstream as "missing_variant_fields".
+    item = _make_item(
+        "Black Orchid - P", "Tom Ford", "/parfumuri/tf-black-orchid-p.html",
+        [_make_par("pTF106100", "100 ml", "591.00")],
+    )
+    candidate = _SearchCandidate(item=item, core_name="black orchid")
+
+    async def run():
+        async with await _scraper_with_routes({}) as scraper:
+            fetched = await scraper.fetch_product(candidate)
+            return await scraper.parse_product(fetched)
+
+    offers = asyncio.run(run())
+
+    assert len(offers) == 1
+    assert offers[0].concentration == "Parfum"
+
+
 def test_parse_product_returns_empty_for_item_with_no_variants():
     # A gift set or similar listing entry with no purchasable "pars" at
     # all must yield zero offers, not crash.

@@ -1,0 +1,67 @@
+{
+  "query": "dior sauvage",
+  "suggestions": [
+    {
+      "value": "Dior (Christian Dior) Sauvage Parfum bărbați 200 ml",
+      "id": 2024991,
+      "data": {
+        "id": 2024991,
+        "name": "Dior (Christian Dior) Sauvage Parfum bărbați 200 ml",
+        "url": "/dior-christian-dior-sauvage-parfum-barbati-200-ml",
+        "type": "product",
+        "price": "1.013 lei",
+        "stock_string": "în stoc",
+        "code": "PCHDISAUVAMXN2024991"
+      }
+    },
+    {
+      "value": "Dior (Christian Dior) Sauvage Eau de Toilette bărbați 100 ml",
+      "id": 81005,
+      "data": {
+        "id": 81005,
+        "name": "Dior (Christian Dior) Sauvage Eau de Toilette bărbați 100 ml",
+        "url": "/christian-dior-sauvage-eau-de-toilette-pentru-barbati-100-ml",
+        "type": "product",
+        "price": "493 lei",
+        "stock_string": "nu se află în stoc",
+        "code": "PCHDISAUVEMXN0081005"
+      }
+    },
+    {
+      "value": "Dior (Christian Dior) Eau Sauvage deostick bărbați 75 ml",
+      "id": 100476,
+      "data": {
+        "id": 100476,
+        "name": "Dior (Christian Dior) Eau Sauvage deostick bărbați 75 ml",
+        "url": "/dior-christian-dior-eau-sauvage-deostick-barbati-75-ml",
+        "type": "product",
+        "price": "176 lei",
+        "stock_string": "în stoc 2&nbsp;buc",
+        "code": "PCHDIEAUSAMXN100476"
+      }
+    },
+    {
+      "value": "Nishane Ani Extrait de Parfum unisex 50 ml",
+      "id": 555001,
+      "data": {
+        "id": 555001,
+        "name": "Nishane Ani Extrait de Parfum unisex 50 ml",
+        "url": "/nishane-ani-extrait-de-parfum-unisex-50-ml",
+        "type": "product",
+        "price": "568 lei",
+        "stock_string": "în stoc",
+        "code": "PNSHANIEXUXN555001"
+      }
+    },
+    {
+      "value": "Cauți Dior?",
+      "id": 1,
+      "data": {
+        "id": 1,
+        "name": "Dior",
+        "url": "/christian-dior",
+        "type": "brand"
+      }
+    }
+  ]
+}

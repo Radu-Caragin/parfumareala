@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Alerts - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<h1>Price alerts</h1>
+
+{% if rows %}
+<ul class="alert-overview-list">
+    {% for row in rows %}
+    <li class="alert-overview-item {{ 'alert-overview-triggered' if row.triggered else '' }}">
+        <div class="alert-overview-main">
+            <a href="/perfumes/{{ row.perfume.id }}">{{ row.perfume.brand }} {{ row.perfume.name }}</a>
+            <span class="meta">
+                {{ row.variant.concentration }} &mdash; {{ row.variant.volume_ml }} ml
+                {%- if row.variant.tester %} &mdash; Tester{% endif -%}
+                &mdash; target &le; {{ row.alert.target_price }} {{ row.alert.currency }}
+            </span>
+        </div>
+        <div class="alert-overview-status">
+            {% if row.triggered %}
+                <span class="badge badge-enabled">Triggered</span>
+                {% for offer in row.matching_offers %}
+                <span class="catalog-offer">{{ offer.store.name }}: {{ offer.current_price }} {{ offer.currency }}</span>
+                {% endfor %}
+            {% else %}
+                <span class="badge badge-disabled">Not triggered</span>
+            {% endif %}
+            <form method="post" action="/alerts/{{ row.alert.id }}/delete" style="display:inline;">
+                <button type="submit" class="button secondary small">Remove</button>
+            </form>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="empty-state">No active price alerts yet. Set one from a perfume's page.</p>
+{% endif %}
+{% endblock %}

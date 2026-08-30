@@ -17,6 +17,14 @@ from earlier became two functions: one that only awaits network I/O and
 returns a plain result object, one that only touches the DB and never
 awaits anything.
 
+check_all_perfumes goes a level further and gathers perfumes themselves
+too, not just stores within one perfume - see its docstring for why that
+stays safe on the same shared Session (short version: nothing that
+touches `db` ever awaits, so asyncio never actually interleaves two
+perfumes' database work). Each pooled store scraper's own request lock
+(app/scrapers/pool.py) is what keeps that store's real HTTP requests
+serialized regardless of how many perfumes are asking at once.
+
 _scrape_store_offers gets its scraper from app.scrapers.pool instead of
 constructing (and, on exit, tearing down) a fresh one for every single
 (perfume, store) pair - a pooled instance's connection and any cache it
@@ -75,9 +83,7 @@ async def check_perfume(
     run = scrape_runs_repo.start_run(db, run_type=RunType.SINGLE, perfume_count=1, store_count=len(stores))
 
     if progress_key is not None:
-        progress_service.start_perfume(
-            progress_key, index=1, total=1, label=f"{perfume.brand} {perfume.name}", stores=stores
-        )
+        progress_service.start_run(progress_key, stores=stores, perfume_count=1)
 
     had_errors = await _check_perfume_against_stores(db, run.id, perfume, stores, progress_key=progress_key)
 
@@ -94,26 +100,44 @@ async def check_perfume(
 async def check_all_perfumes(
     db: Session, perfumes: list[Perfume], stores: list[Store], *, progress_key: str | None = None
 ) -> None:
-    """Check every monitored perfume against the given (enabled) stores."""
+    """Check every monitored perfume against the given (enabled) stores.
+
+    Perfumes are checked concurrently, not one after another. The old
+    sequential loop meant every store waited for the *whole run's*
+    slowest store to finish the current perfume before any of them could
+    start the next one - a store that finished in 0.1s could sit idle for
+    seconds because a different store was still working through search
+    result pages for that same perfume. Gathering perfumes together lets
+    each store instead work through its own queue independently, so the
+    run's wall-clock time is bounded by the slowest store's own total
+    work across every perfume, not by the sum of per-perfume stalls.
+
+    This is safe on one shared, non-async-safe Session because nothing
+    that touches `db` ever awaits: _check_perfume_against_stores's
+    concurrency is confined to its own inner store-gather (network-only,
+    see _scrape_store_offers), and the persistence/mark_checked/alert
+    calls below are all plain synchronous calls with no `await` inside
+    them - asyncio's cooperative scheduler can only switch to another
+    coroutine at an `await` point, so once one of these gathered
+    check_one() calls resumes from its store-gather and starts running
+    that synchronous tail, it runs to completion uninterrupted before any
+    other perfume's coroutine can touch the session.
+    """
     run = scrape_runs_repo.start_run(
         db, run_type=RunType.ALL, perfume_count=len(perfumes), store_count=len(stores)
     )
 
-    had_errors = False
-    for index, perfume in enumerate(perfumes, start=1):
-        if progress_key is not None:
-            progress_service.start_perfume(
-                progress_key,
-                index=index,
-                total=len(perfumes),
-                label=f"{perfume.brand} {perfume.name}",
-                stores=stores,
-            )
+    if progress_key is not None:
+        progress_service.start_run(progress_key, stores=stores, perfume_count=len(perfumes))
 
-        if await _check_perfume_against_stores(db, run.id, perfume, stores, progress_key=progress_key):
-            had_errors = True
+    async def check_one(perfume: Perfume) -> bool:
+        had_errors = await _check_perfume_against_stores(db, run.id, perfume, stores, progress_key=progress_key)
         perfumes_repo.mark_checked(db, perfume)
         _evaluate_alerts_for_perfume(db, perfume)
+        return had_errors
+
+    results = await asyncio.gather(*(check_one(perfume) for perfume in perfumes))
+    had_errors = any(results)
 
     scrape_runs_repo.finish_run(
         db, run, status=RunStatus.COMPLETED_WITH_ERRORS if had_errors else RunStatus.COMPLETED
@@ -130,20 +154,21 @@ async def _check_perfume_against_stores(
     Returns True if any store's call failed outright (a store failing
     never stops the others - see _scrape_store_offers).
 
-    Perfumes themselves stay sequential (not also gathered together) so a
-    store is never hit by more than one concurrent scraper instance at
-    once from THIS loop - the pooled scraper's own request lock (see
-    app/scrapers/pool.py) is what actually protects against overlap
-    between separate check_perfume/check_all_perfumes calls, e.g. two
-    browser tabs triggering checks at once.
+    This function itself may now run concurrently for several perfumes at
+    once (see check_all_perfumes) - a store can therefore be hit by
+    several perfumes' worth of calls to this at the same time. That's
+    fine: the pooled scraper's own request lock (see app/scrapers/pool.py)
+    is what actually serializes that store's real HTTP requests, whether
+    the concurrent callers are different perfumes from one check_all_perfumes
+    run or two separate browser tabs triggering checks at once.
     """
 
     async def scrape_and_report(store: Store) -> _ScrapeOutcome:
         if progress_key is not None:
-            progress_service.mark_checking(progress_key, store.id)
+            progress_service.mark_checking(progress_key, store.id, f"{perfume.brand} {perfume.name}")
         outcome = await _scrape_store_offers(perfume, store)
         if progress_key is not None:
-            progress_service.mark_store_done(progress_key, store.id)
+            progress_service.mark_store_progress(progress_key, store.id)
         return outcome
 
     outcomes = await asyncio.gather(*(scrape_and_report(store) for store in stores))
@@ -216,17 +241,35 @@ def _persist_scrape_result(
         )
         return False
 
+    # A store can genuinely list the exact same variant twice under two
+    # different product URLs (confirmed live on Koku.ro: the same Serge
+    # Lutens Santal Majuscule EDP 50ml has two separate catalog entries at
+    # two different prices) - only one StoreProduct row can exist per
+    # (store, variant) though, so persisting every matching offer in turn
+    # would just make the price flip-flop on every single check with no
+    # real change ever happening (visible as spurious back-to-back +/-
+    # entries on the same run in the price-changes view). Resolved first,
+    # deduplicated by variant, before anything is written.
+    resolved: dict[int, tuple[PerfumeVariant, ScrapedOffer]] = {}
+    for offer in outcome.offers:
+        result = _resolve_offer(db, perfume, store, offer)
+        if result is None:
+            continue
+        variant, resolved_offer = result
+        existing = resolved.get(variant.id)
+        if existing is None or _offer_is_better(resolved_offer, existing[1]):
+            resolved[variant.id] = (variant, resolved_offer)
+
     offers_saved = 0
     any_in_stock = False
     touched_variant_ids: set[int] = set()
 
-    for offer in outcome.offers:
-        variant = _process_offer(db, perfume, store, offer, scrape_run_id)
-        if variant is not None:
-            offers_saved += 1
-            touched_variant_ids.add(variant.id)
-            if offer.availability == "in_stock":
-                any_in_stock = True
+    for variant, offer in resolved.values():
+        _persist_offer(db, store, variant, offer, scrape_run_id)
+        offers_saved += 1
+        touched_variant_ids.add(variant.id)
+        if offer.availability == "in_stock":
+            any_in_stock = True
 
     if any_in_stock:
         status = ScrapeResultStatus.IN_STOCK
@@ -282,11 +325,15 @@ def _mark_delisted_products_out_of_stock(
         )
 
 
-def _process_offer(
-    db: Session, perfume: Perfume, store: Store, offer: ScrapedOffer, scrape_run_id: int
-) -> PerfumeVariant | None:
-    """Validate one scraped offer and, if it's a confident match for an
-    exact variant, persist it. Returns the variant if saved, else None.
+def _resolve_offer(
+    db: Session, perfume: Perfume, store: Store, offer: ScrapedOffer
+) -> tuple[PerfumeVariant, ScrapedOffer] | None:
+    """Validate one scraped offer against the monitored perfume. Returns
+    the (variant, offer) pair if it's a confident match for an exact
+    variant, else None. Never persists a store_product/price_history row -
+    see _persist_offer for that; kept separate so _persist_scrape_result
+    can resolve every offer first and deduplicate by variant before
+    writing anything (see its own comment for why that matters).
     """
     if check_exclusion(offer.raw_title) is not None:
         return None
@@ -318,6 +365,22 @@ def _process_offer(
     if variant is None:
         return None
 
+    return variant, offer
+
+
+def _offer_is_better(candidate: ScrapedOffer, current: ScrapedOffer) -> bool:
+    """Tie-break when two of this check's offers resolved to the exact
+    same variant (see _persist_scrape_result). An in-stock listing beats
+    an out-of-stock one - it's actually buyable; between two offers with
+    the same availability, the cheaper one wins."""
+    candidate_in_stock = candidate.availability == "in_stock"
+    current_in_stock = current.availability == "in_stock"
+    if candidate_in_stock != current_in_stock:
+        return candidate_in_stock
+    return candidate.price < current.price
+
+
+def _persist_offer(db: Session, store: Store, variant: PerfumeVariant, offer: ScrapedOffer, scrape_run_id: int) -> None:
     availability = Availability(offer.availability)
     discount_percentage = _compute_discount_percentage(offer.price, offer.old_price)
 
@@ -347,8 +410,6 @@ def _process_offer(
         discount_percentage=discount_percentage,
         availability=availability,
     )
-
-    return variant
 
 
 def _compute_discount_percentage(price: Decimal, old_price: Decimal | None) -> int | None:

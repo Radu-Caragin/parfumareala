@@ -15,7 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config.settings import get_settings
 from app.database.database import init_db
-from app.routes import alerts, dashboard, perfumes, stores
+from app.routes import alerts, dashboard, perfumes, price_changes, stores
 from app.scrapers import pool as scraper_pool
 from app.utils.logging import configure_logging
 from app.utils.templates import templates
@@ -45,6 +45,7 @@ app.include_router(dashboard.router)
 app.include_router(perfumes.router)
 app.include_router(stores.router)
 app.include_router(alerts.router)
+app.include_router(price_changes.router)
 
 
 @app.exception_handler(StarletteHTTPException)

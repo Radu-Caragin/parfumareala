@@ -201,6 +201,20 @@ def test_search_perfume_excludes_refill_product_at_discovery_stage():
     assert not any("rezerva" in c.product_url for c in candidates)
 
 
+def test_search_perfume_resolves_brand_via_confirmed_alias():
+    # Regression: Notino's sitemap prefixes Initio's product URLs
+    # "initio-parfums-prives", not the bare "initio" this app tracks it as
+    # (confirmed live) - search_perfume must also try brand_lookup_candidates,
+    # not just the literal requested brand's own slug.
+    async def run():
+        async with await _scraper_with_routes(_ROUTES) as scraper:
+            return await scraper.search_perfume("Initio", "Absolute Aphrodisiac")
+
+    candidates = asyncio.run(run())
+    urls = {c.product_url for c in candidates}
+    assert "https://www.notino.ro/initio-parfums-prives/absolute-aphrodisiac-eau-de-parfum-unisex/" in urls
+
+
 def test_search_perfume_unknown_brand_returns_empty():
     async def run():
         async with await _scraper_with_routes(_ROUTES) as scraper:

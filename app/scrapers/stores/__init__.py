@@ -5,8 +5,11 @@ Each store gets its own module here, registering its scraper class via
 ensures the decorator runs on startup.
 """
 
+from app.scrapers.stores import brasty  # noqa: F401
 from app.scrapers.stores import esentedelux  # noqa: F401
 from app.scrapers.stores import fragranza  # noqa: F401
+from app.scrapers.stores import koku  # noqa: F401
 from app.scrapers.stores import notino  # noqa: F401
 from app.scrapers.stores import parfimo  # noqa: F401
+from app.scrapers.stores import parfumat  # noqa: F401
 from app.scrapers.stores import vivantis  # noqa: F401

@@ -11,6 +11,10 @@ def get(db: Session, run_id: int) -> ScrapeRun | None:
     return db.get(ScrapeRun, run_id)
 
 
+def get_latest(db: Session) -> ScrapeRun | None:
+    return db.scalar(select(ScrapeRun).order_by(ScrapeRun.id.desc()).limit(1))
+
+
 def start_run(db: Session, *, run_type: RunType, perfume_count: int, store_count: int) -> ScrapeRun:
     run = ScrapeRun(
         run_type=run_type,

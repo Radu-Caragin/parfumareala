@@ -44,6 +44,24 @@ _INITIAL_STORES = [
         "base_url": "https://www.notino.ro/",
         "scraper_identifier": "notino",
     },
+    {
+        "name": "Parfumat.ro",
+        "slug": "parfumat",
+        "base_url": "https://parfumat.ro/",
+        "scraper_identifier": "parfumat",
+    },
+    {
+        "name": "Brasty.ro",
+        "slug": "brasty",
+        "base_url": "https://www.brasty.ro/",
+        "scraper_identifier": "brasty",
+    },
+    {
+        "name": "Koku.ro",
+        "slug": "koku",
+        "base_url": "https://www.koku.ro/",
+        "scraper_identifier": "koku",
+    },
 ]
 
 

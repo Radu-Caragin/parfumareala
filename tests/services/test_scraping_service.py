@@ -75,6 +75,37 @@ def _make_slow_scraper(slug: str, delay: float) -> type[BaseScraper]:
     return _SlowFakeScraper
 
 
+def _make_variable_delay_scraper(slug: str, delay_by_perfume_name: dict[str, float]) -> type[BaseScraper]:
+    """A fake scraper whose discover_offers() sleeps for however long
+    delay_by_perfume_name says for the perfume it was just asked about -
+    used to prove check_all_perfumes pipelines perfumes across stores
+    (see test_check_all_perfumes_pipelines_across_perfumes), not to test
+    any store-specific behavior.
+    """
+
+    class _VariableDelayFakeScraper(BaseScraper):
+        store_name = slug
+        store_slug = slug
+        base_url = "https://slow.test"
+
+        offers: list[ScrapedOffer] = []
+
+        async def search_perfume(self, brand, perfume_name):
+            return []
+
+        async def fetch_product(self, candidate):
+            return None
+
+        async def parse_product(self, raw_product):
+            return []
+
+        async def discover_offers(self, brand, perfume_name):
+            await asyncio.sleep(delay_by_perfume_name.get(perfume_name, 0.0))
+            return self.offers
+
+    return _VariableDelayFakeScraper
+
+
 @pytest.fixture()
 def fake_store(db_session):
     SCRAPER_REGISTRY["fake-store"] = _FakeScraper
@@ -265,6 +296,57 @@ def test_price_history_only_recorded_on_change(db_session, fake_store):
     assert len(history) == 2  # price dropped -> new row
 
 
+def test_two_offers_resolving_to_same_variant_persist_only_one_and_no_spurious_history(db_session, fake_store):
+    # Regression: confirmed live on Koku.ro - the same perfume (Serge
+    # Lutens Santal Majuscule EDP 50ml) had two separate catalog listings
+    # at two different prices/URLs. Both resolve to the identical
+    # PerfumeVariant, but only one StoreProduct row can exist per (store,
+    # variant) - persisting each offer as it's encountered made the price
+    # flip-flop on every single check (two price_history rows per run,
+    # +delta then -delta) even though nothing had actually changed since
+    # the check before. Only the best offer (in-stock beats out-of-stock;
+    # cheapest wins a tie) should ever be written.
+    perfume = _perfume(db_session)
+    _FakeScraper.offers = [
+        _offer(price=Decimal("363.00"), product_url="https://fake.test/erba-gold-a"),
+        _offer(price=Decimal("330.00"), product_url="https://fake.test/erba-gold-b"),
+    ]
+
+    asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
+
+    variants = variants_repo.list_for_perfume(db_session, perfume.id)
+    assert len(variants) == 1
+    store_products = store_products_repo.list_for_variant(db_session, variants[0].id)
+    assert len(store_products) == 1
+    assert store_products[0].current_price == Decimal("330.00")
+    assert store_products[0].product_url == "https://fake.test/erba-gold-b"
+
+    history = prices_repo.list_for_store_product(db_session, store_products[0].id)
+    assert len(history) == 1  # not two flip-flopping rows
+
+    # Re-running the identical check must not add a second history row
+    # either - nothing actually changed.
+    asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
+    history = prices_repo.list_for_store_product(db_session, store_products[0].id)
+    assert len(history) == 1
+
+
+def test_duplicate_variant_offers_prefer_in_stock_over_out_of_stock(db_session, fake_store):
+    perfume = _perfume(db_session)
+    _FakeScraper.offers = [
+        _offer(price=Decimal("330.00"), availability="out_of_stock", product_url="https://fake.test/a"),
+        _offer(price=Decimal("363.00"), availability="in_stock", product_url="https://fake.test/b"),
+    ]
+
+    asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
+
+    variants = variants_repo.list_for_perfume(db_session, perfume.id)
+    store_products = store_products_repo.list_for_variant(db_session, variants[0].id)
+    assert len(store_products) == 1
+    assert store_products[0].availability == Availability.IN_STOCK
+    assert store_products[0].current_price == Decimal("363.00")
+
+
 def test_check_all_perfumes_updates_every_perfume(db_session, fake_store):
     perfume_a = _perfume(db_session)
     perfume_b = perfumes_repo.create(
@@ -384,6 +466,59 @@ def test_check_perfume_scrapes_stores_concurrently(db_session):
         assert len(variants) == 1
         store_products = store_products_repo.list_for_variant(db_session, variants[0].id)
         assert {sp.store_id for sp in store_products} == {store_a.id, store_b.id}
+    finally:
+        SCRAPER_REGISTRY.pop(slug_a, None)
+        SCRAPER_REGISTRY.pop(slug_b, None)
+        scraper_pool.reset_pool()
+
+
+def test_check_all_perfumes_pipelines_across_perfumes(db_session):
+    # Store A is slow (0.2s) for perfume 1 but instant for perfume 2;
+    # store B is the mirror image. Checking perfumes strictly one after
+    # another (the old behavior) pays the full 0.2s "slow store" cost on
+    # EVERY round, since each round waits for whichever store is slow
+    # *that* round before starting the next perfume at all: 2 rounds x
+    # 0.2s = ~0.4s total. Pipelining perfumes lets each store work
+    # through its own queue independently of the other store's pace:
+    # store A's own total work is 0.2s (perfume 1) + ~0s (perfume 2) =
+    # ~0.2s, store B's is the mirror image, and since they now run
+    # concurrently instead of in lockstep rounds, the whole run finishes
+    # in ~0.2s, not ~0.4s.
+    import time
+
+    delay = 0.2
+    slug_a, slug_b = "variable-store-a", "variable-store-b"
+    scraper_a = _make_variable_delay_scraper(slug_a, {"Erba Gold": delay, "Sauvage": 0.0})
+    scraper_b = _make_variable_delay_scraper(slug_b, {"Erba Gold": 0.0, "Sauvage": delay})
+    SCRAPER_REGISTRY[slug_a] = scraper_a
+    SCRAPER_REGISTRY[slug_b] = scraper_b
+    try:
+        store_a = Store(
+            name="Variable Store A", slug=slug_a, base_url="https://slow.test",
+            enabled=True, scraper_identifier=slug_a,
+        )
+        store_b = Store(
+            name="Variable Store B", slug=slug_b, base_url="https://slow.test",
+            enabled=True, scraper_identifier=slug_b,
+        )
+        db_session.add_all([store_a, store_b])
+        db_session.commit()
+        db_session.refresh(store_a)
+        db_session.refresh(store_b)
+
+        perfume_a = _perfume(db_session)  # brand=Xerjoff, name="Erba Gold"
+        perfume_b = perfumes_repo.create(
+            db_session, brand="Dior", name="Sauvage", normalized_brand="dior", normalized_name="sauvage"
+        )
+
+        start = time.monotonic()
+        asyncio.run(scraping_service.check_all_perfumes(db_session, [perfume_a, perfume_b], [store_a, store_b]))
+        elapsed = time.monotonic() - start
+
+        assert elapsed < delay * 1.5  # pipelined: ~1 delay total, not 2
+
+        assert perfumes_repo.get(db_session, perfume_a.id).last_checked_at is not None
+        assert perfumes_repo.get(db_session, perfume_b.id).last_checked_at is not None
     finally:
         SCRAPER_REGISTRY.pop(slug_a, None)
         SCRAPER_REGISTRY.pop(slug_b, None)

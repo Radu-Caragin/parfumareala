@@ -36,6 +36,37 @@ def test_extract_core_name_strips_stray_quote_marks():
     assert "erba gold" in core
 
 
+def test_extract_core_name_strips_stray_commas():
+    # Regression: Parfumat.ro titles some products as a comma-separated
+    # list ("Paris Corner, Mawj Moscow Mule, Unisex, 100 ml") instead of
+    # plain words - once brand/volume/gender are stripped, the leftover
+    # commas ("- , mawj moscow mule, ,") made the name compare unequal to
+    # a clean "mawj moscow mule", falling back to a weaker fuzzy score for
+    # no real reason.
+    core = extract_core_name("Paris Corner, Mawj Moscow Mule, Unisex, 100 ml", brand="Paris Corner")
+    assert "," not in core
+    assert core == "mawj moscow mule"
+
+
+def test_extract_core_name_strips_bare_gender_word_without_pentru_prefix():
+    # Regression: Brasty.ro drops "pentru" and just appends the bare
+    # gender word instead ("Eau de Toilette bărbați", confirmed live) -
+    # the old pattern only matched "pentru bărbați"/"pentru femei"/
+    # "pentru copii", so "bărbați" was left dangling in the extracted
+    # name ("pour lui barbati" instead of "pour lui"), dragging its
+    # fuzzy-match score against the monitored perfume's clean name below
+    # the usable threshold.
+    core = extract_core_name(
+        "Oscar de la Renta Pour Lui Eau de Toilette bărbați 90 ml", brand="Oscar de la Renta"
+    )
+    assert "barbati" not in core
+    assert core == "pour lui"
+
+    # The "pentru "-prefixed phrase must still be fully consumed too, not
+    # left with a dangling "pentru" once the bare word is also matched.
+    assert "pentru" not in extract_core_name("Woman Eau de Parfum pentru femei", brand="")
+
+
 def test_extract_core_name_strips_leading_brand_when_given():
     # Parfimo's tracking JSON "name" field always includes the brand
     # prefixed (e.g. "Xerjoff Erba Gold Apa de parfum 50 ml") - without
@@ -54,3 +85,23 @@ def test_extract_core_name_strips_manufacturer_suffix_word_after_brand():
     # and drags the fuzzy-match score below the usable threshold (was a
     # real bug: 79 instead of 100).
     assert extract_core_name("Zoologist Perfumes Tyrannosaurus Rex", brand="Zoologist") == "tyrannosaurus rex"
+
+
+def test_extract_core_name_strips_collection_noir_prefix():
+    # Regression: Notino.ro titles every one of Serge Lutens' former
+    # Palais-Royal-exclusive fragrances "Collection Noir(e) <name>", not
+    # the bare name alone (confirmed live) - unstripped, that prefix
+    # dragged a short target name's fuzzy score well under the ambiguous
+    # threshold (e.g. "Collection Noir Chergui" vs "Chergui" scored ~47),
+    # silently dropping a real, in-stock match.
+    assert extract_core_name("Collection Noir Chergui Eau de Parfum") == "chergui"
+    assert extract_core_name("Collection Noire Santal Majuscule Eau de Parfum") == "santal majuscule"
+
+
+def test_extract_core_name_strips_aromatix_sub_line_prefix():
+    # Regression: French Avenue's "Sun Kissed" is retailed as "Aromatix
+    # Sun Kissed" - confirmed live on two independent stores (Parfumat.ro,
+    # Notino.ro) using the identical wording. Unstripped, "Aromatix"
+    # dragged the fuzzy score to ~69 on both, just under the ambiguous
+    # threshold, silently dropping a real, in-stock match.
+    assert extract_core_name("French Avenue Aromatix Sun Kissed Extract de Parfum", brand="French Avenue") == "sun kissed"

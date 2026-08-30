@@ -118,3 +118,50 @@ def test_detail_page_no_banner_when_no_alert_triggered(client, db_session):
     response = client.get(f"/perfumes/{perfume.id}")
 
     assert "Price alert triggered" not in response.text
+
+
+def test_alerts_overview_shows_empty_state_when_no_alerts(client):
+    response = client.get("/alerts")
+
+    assert response.status_code == 200
+    assert "No active price alerts yet." in response.text
+
+
+def test_alerts_overview_lists_alert_with_perfume_name(client, db_session):
+    perfume, variant = _perfume_and_variant(db_session)
+    alerts_repo.create(db_session, perfume_variant_id=variant.id, target_price=Decimal("750.00"), currency="RON")
+
+    response = client.get("/alerts")
+
+    assert "Xerjoff Erba Gold" in response.text
+    assert "750.00" in response.text
+    assert "Not triggered" in response.text
+
+
+def test_alerts_overview_shows_triggered_status_and_matching_offer(client, db_session):
+    perfume, variant = _perfume_and_variant(db_session)
+    store = Store(name="Fragranza.ro", slug="fragranza", base_url="https://fragranza.ro", enabled=True, scraper_identifier="fragranza")
+    db_session.add(store)
+    db_session.commit()
+    store_products_repo.upsert_offer(
+        db_session, store_id=store.id, variant_id=variant.id,
+        product_url="https://fragranza.ro/x", store_product_identifier=None, product_title="x",
+        price=Decimal("729.00"), old_price=None, currency="RON",
+        discount_percentage=None, availability=Availability.IN_STOCK,
+    )
+    alerts_repo.create(db_session, perfume_variant_id=variant.id, target_price=Decimal("750.00"), currency="RON")
+
+    response = client.get("/alerts")
+
+    assert "Triggered" in response.text
+    assert "Fragranza.ro: 729.00 RON" in response.text
+
+
+def test_alerts_overview_excludes_disabled_alerts(client, db_session):
+    perfume, variant = _perfume_and_variant(db_session)
+    alert = alerts_repo.create(db_session, perfume_variant_id=variant.id, target_price=Decimal("750.00"), currency="RON")
+    alerts_repo.set_enabled(db_session, alert, False)
+
+    response = client.get("/alerts")
+
+    assert "No active price alerts yet." in response.text

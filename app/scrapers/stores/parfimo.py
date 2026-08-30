@@ -91,7 +91,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from rapidfuzz import fuzz
 
-from app.normalization.brand import normalize_brand
+from app.normalization.brand import brand_lookup_candidates, normalize_brand
 from app.normalization.concentration import extract_concentration
 from app.normalization.name import extract_core_name, normalize_name
 from app.normalization.price import parse_price
@@ -216,7 +216,11 @@ class ParfimoScraper(BaseScraper):
     def _is_plausible_candidate(
         item_brand: str, item_core_name: str, target_brand: str, target_name: str, ambiguous_threshold: int
     ) -> bool:
-        if normalize_brand(item_brand) != normalize_brand(target_brand):
+        # Alias-aware, not a bare equality check - see
+        # brand_lookup_candidates and Parfumat's own version of this same
+        # fix (confirmed live there: Dior's listings read "Christian
+        # Dior", not "Dior").
+        if normalize_brand(item_brand) not in brand_lookup_candidates(target_brand):
             return False
 
         target_normalized = normalize_name(target_name)

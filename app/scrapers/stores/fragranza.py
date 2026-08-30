@@ -27,7 +27,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 from rapidfuzz import fuzz
 
-from app.normalization.brand import normalize_brand
+from app.normalization.brand import brand_lookup_candidates, normalize_brand
 from app.normalization.concentration import extract_concentration
 from app.normalization.name import extract_core_name, normalize_name
 from app.normalization.price import parse_price
@@ -72,7 +72,11 @@ class FragranzaScraper(BaseScraper):
     async def _get_brand_url(self, brand: str) -> str | None:
         if self._brand_url_cache is None:
             self._brand_url_cache = await self._load_brand_directory()
-        return self._brand_url_cache.get(normalize_brand(brand))
+        for candidate in brand_lookup_candidates(brand):
+            url = self._brand_url_cache.get(candidate)
+            if url is not None:
+                return url
+        return None
 
     async def _load_brand_directory(self) -> dict[str, str]:
         response = await self.get("/brands")
@@ -163,8 +167,13 @@ class FragranzaScraper(BaseScraper):
         short target name like "Ani" tanks the fuzzy score (~25, well
         under threshold) and silently drops the real product before it's
         ever fetched - found via a live cross-store mismatch report.
+
+        Alias-aware, not a bare equality check - see
+        brand_lookup_candidates and Parfumat's own version of this same
+        fix (confirmed live there: Dior's listings read "Christian
+        Dior", not "Dior").
         """
-        if normalize_brand(item_brand) != normalize_brand(target_brand):
+        if normalize_brand(item_brand) not in brand_lookup_candidates(target_brand):
             return False
 
         candidate_name = extract_core_name(item_name, brand=item_brand)

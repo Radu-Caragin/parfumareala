@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}By store - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<h1>By store</h1>
+<p class="meta">What each store currently has in stock, from the latest price checks.</p>
+
+{% if sections %}
+{% for section in sections %}
+<div class="store-catalog-section">
+    <h2>{{ section.store.name }}{% if not section.store.enabled %} <span class="badge badge-disabled">Disabled</span>{% endif %}</h2>
+    {% if section.perfumes %}
+    <ul class="catalog-perfume-list">
+        {% for entry in section.perfumes %}
+        <li class="catalog-perfume-row">
+            <a href="/perfumes/{{ entry.perfume.id }}">{{ entry.perfume.brand }} {{ entry.perfume.name }}</a>
+            <span class="catalog-offers">
+                {% for offer in entry.offers %}
+                <span class="catalog-offer">
+                    {{ offer.variant.concentration }} {{ offer.variant.volume_ml }}ml{% if offer.variant.tester %} Tester{% endif %}
+                    &mdash; {{ offer.current_price }} {{ offer.currency }}
+                </span>{% if not loop.last %}<span class="catalog-offer-sep">&middot;</span>{% endif %}
+                {% endfor %}
+            </span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">Nothing currently in stock here.</p>
+    {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<p class="empty-state">No stores configured yet.</p>
+{% endif %}
+{% endblock %}

@@ -44,7 +44,24 @@ Investigation summary:
 - Concentration is a suffix on the item's own name field (e.g. "Pour
   Homme - EDT", "Sauvage Elixir - extract de parfum") - the Romanian
   "extract de parfum" spelling is used here too, already covered by
-  concentration.py.
+  concentration.py. Also uses the bare Czech/Slovak word "parfém" as that
+  suffix sometimes (e.g. "MYSLF L`Absolu - parfém", confirmed live,
+  in stock) - concentration.py's diacritic-stripped "parfem" pattern
+  handles this now (a real spelling, not just an accent - "parfem" has a
+  different vowel than "parfum").
+  2026-08-25: a handful of real, in-stock listings truncate that suffix
+  down to a single letter instead - "Black Orchid - P" (confirmed live,
+  100ml, in stock, no other concentration wording anywhere in the name -
+  extract_concentration() found nothing and the whole offer would have
+  been silently dropped downstream as "missing_variant_fields"). Sampling
+  ~250 more items across 5 more brands found the same "- P" suffix on 3
+  more names, always alongside "Parfum" spelled out elsewhere in the same
+  name (e.g. "Bleu De Chanel Parfum - P") - consistent with "P" standing
+  for Parfum, never seen paired with EDT/EDC wording. Too narrow and
+  single-letter to add as a shared concentration.py pattern (real
+  collision risk with unrelated text on other stores), so it's handled
+  as a Vivantis-only fallback in parse_product() instead, applied only
+  when the shared extractor already found nothing.
 - Testers: none found anywhere in the whole catalog - checked all
   ~6800 perfume-category sitemap URLs (only false-positive matches were
   "sporttester" fitness watches) and every "pars" variant sampled across
@@ -80,7 +97,7 @@ from bs4 import BeautifulSoup
 from curl_cffi.requests.exceptions import HTTPError as CurlHTTPError
 from rapidfuzz import fuzz
 
-from app.normalization.brand import normalize_brand
+from app.normalization.brand import brand_lookup_candidates, normalize_brand
 from app.normalization.concentration import extract_concentration
 from app.normalization.name import extract_core_name, normalize_name
 from app.normalization.volume import extract_volume_ml
@@ -94,6 +111,7 @@ logger = logging.getLogger(__name__)
 _MAX_LISTING_PAGES = 10
 _STATE_MARKER = "window.__INITIAL_STATE__state='"
 _BRAND_HREF_PATTERN = re.compile(r"^/[a-z0-9][a-z0-9-]*/$")
+_TRAILING_P_PATTERN = re.compile(r"-\s*P\s*\Z")
 
 
 @dataclass(frozen=True)
@@ -117,7 +135,11 @@ class VivantisScraper(CurlCffiScraper):
     async def _get_brand_slug(self, brand: str) -> str | None:
         if self._brand_slug_cache is None:
             self._brand_slug_cache = await self._load_brand_directory()
-        return self._brand_slug_cache.get(normalize_brand(brand))
+        for candidate in brand_lookup_candidates(brand):
+            slug = self._brand_slug_cache.get(candidate)
+            if slug is not None:
+                return slug
+        return None
 
     async def _load_brand_directory(self) -> dict[str, str]:
         response = await self.get("/branduri/")
@@ -286,6 +308,15 @@ class VivantisScraper(CurlCffiScraper):
             return brands[0].get("name")
         return None
 
+    @staticmethod
+    def _extract_trailing_p_as_parfum(name: str) -> str | None:
+        """See the module docstring's 2026-08-25 note - a trailing "- P"
+        with no other concentration wording anywhere in the name means
+        Parfum on this store, confirmed live."""
+        if _TRAILING_P_PATTERN.search(name):
+            return "Parfum"
+        return None
+
     # -- fetch / parse ----------------------------------------------------
 
     async def fetch_product(self, candidate: _SearchCandidate) -> _SearchCandidate:
@@ -297,7 +328,7 @@ class VivantisScraper(CurlCffiScraper):
         item = raw_product.item
         name = item.get("name") or ""
         brand = self._extract_brand(item)
-        concentration = extract_concentration(name)
+        concentration = extract_concentration(name) or self._extract_trailing_p_as_parfum(name)
         perfume_name = extract_core_name(name, brand=brand)
         url_relative = item.get("urlRelative")
 

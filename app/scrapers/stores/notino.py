@@ -68,6 +68,15 @@ Investigation summary:
   bottles ("reincarcabil") - added a Romanian "rezerva"/"rezerve"
   exclusion pattern to app/normalization/exclusions.py, the same
   distinction already established for the English "refill" pattern.
+- 2026-08-26 audit: brand_lookup_candidates (see module docstring in
+  app/normalization/brand.py) was never wired in here, unlike every
+  directory-based scraper in this project - this store doesn't use a
+  directory, but the same "a store can spell a brand differently" problem
+  still applies to the sitemap's own URL prefix. Confirmed live: Initio's
+  sitemap URLs are prefixed "initio-parfums-prives", not the bare
+  "initio" this app tracks it as (0 vs 18 matching sitemap entries) - the
+  naive `self._slugify(brand)` alone silently found nothing. Every known
+  alias is now tried, not just the literal brand slug.
 """
 
 import json
@@ -80,6 +89,7 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from rapidfuzz import fuzz
 
+from app.normalization.brand import brand_lookup_candidates
 from app.normalization.concentration import extract_concentration
 from app.normalization.name import extract_core_name, normalize_name
 from app.normalization.text_utils import strip_diacritics
@@ -145,12 +155,12 @@ class NotinoScraper(CurlCffiScraper):
     async def search_perfume(self, brand: str, perfume_name: str) -> list[_SearchCandidate]:
         ambiguous_threshold = self._settings.MATCH_NAME_AMBIGUOUS_THRESHOLD
         target_normalized = normalize_name(perfume_name)
-        brand_slug = self._slugify(brand)
+        brand_slugs = {self._slugify(alias) for alias in brand_lookup_candidates(brand)}
 
         candidates: list[_SearchCandidate] = []
         for url in await self._get_sitemap_urls():
             match = _PRODUCT_URL_PATTERN.match(urlparse(url).path)
-            if not match or match.group(1) != brand_slug:
+            if not match or match.group(1) not in brand_slugs:
                 continue
 
             remainder = match.group(2).replace("-", " ")

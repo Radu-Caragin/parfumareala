@@ -95,3 +95,56 @@ def test_check_all_with_no_stores_still_marks_perfumes_checked(client, db_sessio
     # forces the next access to hit the database again.
     db_session.expire_all()
     assert perfumes_repo.get(db_session, perfume.id).last_checked_at is not None
+
+
+def test_dashboard_search_filters_by_brand_or_name(client, db_session):
+    perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"
+    )
+    perfumes_repo.create(
+        db_session, brand="Dior", name="Sauvage", normalized_brand="dior", normalized_name="sauvage"
+    )
+
+    response = client.get("/?q=erba")
+
+    assert "Erba Gold" in response.text
+    assert "Sauvage" not in response.text
+
+
+def test_dashboard_search_matches_brand_case_insensitively(client, db_session):
+    perfumes_repo.create(
+        db_session, brand="Dior", name="Sauvage", normalized_brand="dior", normalized_name="sauvage"
+    )
+    perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"
+    )
+
+    response = client.get("/?q=DIOR")
+
+    assert "Sauvage" in response.text
+    assert "Erba Gold" not in response.text
+
+
+def test_dashboard_search_no_match_shows_filter_empty_state(client, db_session):
+    perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"
+    )
+
+    response = client.get("/?q=nonexistent")
+
+    assert "No perfumes match this filter." in response.text
+
+
+def test_dashboard_never_checked_filter(client, db_session):
+    checked = perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"
+    )
+    perfumes_repo.mark_checked(db_session, checked)
+    perfumes_repo.create(
+        db_session, brand="Dior", name="Sauvage", normalized_brand="dior", normalized_name="sauvage"
+    )
+
+    response = client.get("/?availability=never_checked")
+
+    assert "Sauvage" in response.text
+    assert "Erba Gold" not in response.text

@@ -6,15 +6,48 @@ No external notifications; alerts only ever surface inside this app
 
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Depends, Form, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.database.repositories import alerts as alerts_repo
 from app.database.repositories import variants as variants_repo
+from app.services import alert_service
+from app.utils.templates import templates
 
 router = APIRouter()
+
+
+@router.get("/alerts", response_class=HTMLResponse)
+async def list_alerts(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Every enabled alert across all perfumes, at a glance - without this,
+    a triggered alert is only visible by happening to open the exact
+    perfume/variant page it belongs to."""
+    alerts = alerts_repo.list_enabled(db)
+
+    status_by_variant: dict[int, dict[int, alert_service.TriggeredAlert]] = {}
+    rows = []
+    for alert in alerts:
+        variant = alert.variant
+        if variant.id not in status_by_variant:
+            status_by_variant[variant.id] = {
+                triggered.alert.id: triggered for triggered in alert_service.current_alert_status(variant)
+            }
+        triggered = status_by_variant[variant.id].get(alert.id)
+        rows.append(
+            {
+                "alert": alert,
+                "perfume": variant.perfume,
+                "variant": variant,
+                "triggered": triggered is not None,
+                "matching_offers": triggered.matching_offers if triggered else [],
+            }
+        )
+
+    rows.sort(key=lambda r: (not r["triggered"], r["perfume"].brand.lower(), r["perfume"].name.lower()))
+
+    return templates.TemplateResponse(request, "alerts/list.html", {"rows": rows})
 
 
 @router.post("/perfumes/{perfume_id}/variants/{variant_id}/alerts")

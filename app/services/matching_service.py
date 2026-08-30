@@ -2,8 +2,14 @@
 same monitored perfume, and which exact variant it belongs to.
 
 Brand is matched exactly on its normalized form - never fuzzy, since a
-brand mismatch means a genuinely different product. Concentration, volume
-and tester are also exact (they define variant identity - see
+brand mismatch means a genuinely different product - except for a small,
+confirmed-live set of alternate names one same brand is known to go by
+across stores (see app.normalization.brand.brand_lookup_candidates, e.g.
+"Dior" / "Christian Dior" - a store's own product data can carry either
+one). That's a fixed lookup table, never a fuzzy comparison, and every
+entry in it was only added after being observed live - it doesn't get
+looser just because two brand names happen to look similar. Concentration,
+volume and tester are also exact (they define variant identity - see
 instructions.md section 26). Fuzzy matching is only ever applied to the
 perfume name, to tolerate minor spelling/spacing differences between
 stores, and it can never override a brand mismatch or missing variant data.
@@ -21,7 +27,7 @@ from sqlalchemy.orm import Session
 from app.config.settings import get_settings
 from app.database.models import Perfume, PerfumeVariant
 from app.database.repositories import variants as variants_repo
-from app.normalization.brand import normalize_brand
+from app.normalization.brand import brand_lookup_candidates
 from app.normalization.exclusions import check_exclusion
 from app.normalization.name import normalize_name
 
@@ -79,7 +85,7 @@ def validate_candidate(
     if exclusion_reason is not None:
         return MatchResult(MatchConfidence.REJECTED, reason=f"excluded:{exclusion_reason}")
 
-    if normalize_brand(candidate.brand) != perfume.normalized_brand:
+    if perfume.normalized_brand not in brand_lookup_candidates(candidate.brand):
         return MatchResult(MatchConfidence.REJECTED, reason="brand_mismatch")
 
     if candidate.concentration is None or candidate.volume_ml is None:

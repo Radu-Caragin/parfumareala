@@ -8,12 +8,13 @@ without benefit. StoreProduct.last_checked_at (updated separately) still
 always reflects the most recent check, changed or not.
 """
 
+from dataclasses import dataclass
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.database.models import Availability, PriceHistory
+from app.database.models import Availability, PerfumeVariant, PriceHistory, StoreProduct
 
 
 def get_latest(db: Session, store_product_id: int) -> PriceHistory | None:
@@ -67,3 +68,58 @@ def list_for_store_product(db: Session, store_product_id: int) -> list[PriceHist
             .order_by(PriceHistory.recorded_at.desc(), PriceHistory.id.desc())
         )
     )
+
+
+@dataclass(frozen=True)
+class PriceChange:
+    store_product: StoreProduct
+    price: Decimal
+    previous_price: Decimal
+    delta: Decimal
+    currency: str
+    availability: Availability
+
+
+def list_price_changes_for_run(db: Session, scrape_run_id: int) -> list[PriceChange]:
+    """Every store_product whose PRICE (not just availability) actually
+    changed during this scrape run, compared to whatever price was
+    recorded for it right before. A store_product's very first-ever
+    price_history row is never included - there's nothing to compare it
+    against yet, so it's a new listing, not a "change"."""
+    entries = list(
+        db.scalars(
+            select(PriceHistory)
+            .where(PriceHistory.scrape_run_id == scrape_run_id)
+            .options(
+                joinedload(PriceHistory.store_product).joinedload(StoreProduct.store),
+                joinedload(PriceHistory.store_product)
+                .joinedload(StoreProduct.variant)
+                .joinedload(PerfumeVariant.perfume),
+            )
+            .order_by(PriceHistory.id)
+        )
+    )
+
+    changes: list[PriceChange] = []
+    for entry in entries:
+        previous = db.scalar(
+            select(PriceHistory)
+            .where(PriceHistory.store_product_id == entry.store_product_id, PriceHistory.id < entry.id)
+            .order_by(PriceHistory.id.desc())
+            .limit(1)
+        )
+        if previous is None or previous.price == entry.price:
+            continue
+
+        changes.append(
+            PriceChange(
+                store_product=entry.store_product,
+                price=entry.price,
+                previous_price=previous.price,
+                delta=entry.price - previous.price,
+                currency=entry.currency,
+                availability=entry.availability,
+            )
+        )
+
+    return changes

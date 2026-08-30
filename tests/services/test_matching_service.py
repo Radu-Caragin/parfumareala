@@ -2,6 +2,12 @@ from app.database.repositories import perfumes as perfumes_repo
 from app.services.matching_service import MatchCandidate, MatchConfidence, resolve_variant, validate_candidate
 
 
+def _dior_perfume(db_session):
+    return perfumes_repo.create(
+        db_session, brand="Dior", name="Sauvage", normalized_brand="dior", normalized_name="sauvage"
+    )
+
+
 def _perfume(db_session):
     return perfumes_repo.create(
         db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"
@@ -36,6 +42,30 @@ def test_brand_mismatch_is_rejected(db_session):
 
     assert result.confidence == MatchConfidence.REJECTED
     assert result.reason == "brand_mismatch"
+
+
+def test_confirmed_brand_alias_is_accepted_not_rejected(db_session):
+    # Regression: Parfumat's real product data reports this brand as
+    # "Christian Dior", never bare "Dior" (confirmed live) - this used to
+    # get rejected here as a "brand_mismatch" even after the scraper's
+    # own discovery-stage filter was fixed to accept it, because this is
+    # the separate, authoritative final gate and had its own bare
+    # equality check.
+    perfume = _dior_perfume(db_session)
+
+    result = validate_candidate(
+        perfume,
+        MatchCandidate(
+            raw_title="Dior (Christian Dior) Sauvage Parfum barbati 200 ml",
+            brand="Christian Dior",
+            name="Sauvage",
+            concentration="Parfum",
+            volume_ml=200,
+            tester=False,
+        ),
+    )
+
+    assert result.confidence == MatchConfidence.EXACT
 
 
 def test_unrelated_perfume_name_is_rejected(db_session):

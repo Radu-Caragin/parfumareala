@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Price changes - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<h1>Price changes</h1>
+{% if latest_run %}
+<p class="meta">
+    What changed at the last check &mdash; {{ latest_run.started_at.strftime("%d %b %Y, %H:%M") }}
+    ({{ "check all" if latest_run.run_type.value == "all" else "single perfume" }})
+</p>
+{% else %}
+<p class="meta">No price check has been run yet.</p>
+{% endif %}
+
+{% if changes %}
+<div class="table-scroll">
+<table class="offers-table">
+    <thead>
+        <tr>
+            <th>Perfume</th>
+            <th>Variant</th>
+            <th>Store</th>
+            <th>Previous price</th>
+            <th>New price</th>
+            <th>Change</th>
+            <th>Status</th>
+            <th>Product</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for change in changes %}
+        {% set variant = change.store_product.variant %}
+        {% set perfume = variant.perfume %}
+        <tr>
+            <td><a href="/perfumes/{{ perfume.id }}">{{ perfume.brand }} {{ perfume.name }}</a></td>
+            <td>{{ variant.concentration }} &mdash; {{ variant.volume_ml }} ml{% if variant.tester %} &mdash; Tester{% endif %}</td>
+            <td>{{ change.store_product.store.name }}</td>
+            <td>{{ change.previous_price }} {{ change.currency }}</td>
+            <td>{{ change.price }} {{ change.currency }}</td>
+            <td>
+                <span class="price-delta {{ 'price-delta-down' if change.delta < 0 else 'price-delta-up' }}">
+                    {{ "%+.2f"|format(change.delta) }} {{ change.currency }}
+                </span>
+            </td>
+            <td>
+                <span class="status-badge status-{{ change.availability.value }}">
+                    {{ "In stock" if change.availability.value == "in_stock" else "Out of stock" }}
+                </span>
+            </td>
+            <td><a href="{{ change.store_product.product_url }}" target="_blank" rel="noopener">View product</a></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty-state">No price changes at the last check.</p>
+{% endif %}
+{% endblock %}

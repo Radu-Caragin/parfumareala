@@ -10,7 +10,7 @@ float for money (instructions.md section 19).
 import re
 from decimal import Decimal, InvalidOperation
 
-_PRICE_PATTERN = re.compile(r"(\d{1,3}(?:[.\s]\d{3})*),(\d{2})")
+_PRICE_PATTERN = re.compile(r"(\d+(?:[.\s]\d{3})*),(\d{2})")
 
 
 def parse_price(text: str) -> Decimal | None:

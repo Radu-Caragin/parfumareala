@@ -1,13 +1,15 @@
 {% if check_progress and not check_progress.done %}
 <div class="check-progress" hx-get="{{ check_status_url }}" hx-trigger="every 1.2s" hx-swap="outerHTML">
     <p class="meta">
-        Checking {{ check_progress.current_perfume_label }}
-        {%- if check_progress.total_perfumes > 1 %} ({{ check_progress.current_perfume_index }}/{{ check_progress.total_perfumes }}){% endif %}
-        &mdash; {{ check_progress.completed_store_count }}/{{ check_progress.total_store_count }} stores done
+        {{ check_progress.completed_check_count }}/{{ check_progress.total_check_count }} checks done
     </p>
     <ul class="check-progress-list">
         {% for store_progress in check_progress.stores.values() %}
-        <li class="check-progress-item check-progress-{{ store_progress.status }}">{{ store_progress.store_name }}</li>
+        <li class="check-progress-item check-progress-{{ store_progress.status }}">
+            {{ store_progress.store_name }}
+            {%- if store_progress.status == "checking" and store_progress.current_label %} &mdash; {{ store_progress.current_label }}{% endif -%}
+            {%- if store_progress.total > 1 %} ({{ store_progress.completed }}/{{ store_progress.total }}){% endif -%}
+        </li>
         {% endfor %}
     </ul>
 </div>

@@ -8,7 +8,7 @@ repositories/prices.py), since that depends on whether anything changed.
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database.models import Availability, PerfumeVariant, StoreProduct
 from app.utils.helpers import utcnow
@@ -91,3 +91,19 @@ def list_for_perfume_and_store(db: Session, perfume_id: int, store_id: int) -> l
 def mark_out_of_stock(db: Session, store_product: StoreProduct) -> None:
     store_product.availability = Availability.OUT_OF_STOCK
     db.commit()
+
+
+def list_in_stock(db: Session) -> list[StoreProduct]:
+    """Every currently in-stock offer across every store, with store and
+    perfume eagerly loaded - used by the "by store" catalog view (see
+    routes/stores.py), which groups these by store and then by perfume."""
+    return list(
+        db.scalars(
+            select(StoreProduct)
+            .where(StoreProduct.availability == Availability.IN_STOCK)
+            .options(
+                joinedload(StoreProduct.store),
+                joinedload(StoreProduct.variant).joinedload(PerfumeVariant.perfume),
+            )
+        )
+    )
