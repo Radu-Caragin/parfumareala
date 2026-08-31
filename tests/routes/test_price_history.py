@@ -85,10 +85,15 @@ def test_price_history_404_for_missing_store_product(client, db_session):
     assert response.status_code == 404
 
 
-def test_detail_page_links_to_history(client, db_session):
+def test_detail_page_shows_history_inline_per_store_instead_of_linking_out(client, db_session):
+    # Price history is now shown inline, in its own dropdown per store
+    # row (see perfumes/detail.html) - the detail page no longer links
+    # out to this module's own standalone page (still reachable directly
+    # if navigated to, just not linked from there anymore).
     perfume, store_product = _setup_store_product(db_session)
 
     response = client.get(f"/perfumes/{perfume.id}")
 
-    assert f'href="/perfumes/{perfume.id}/history/{store_product.id}"' in response.text
-    assert "History" in response.text
+    assert f'href="/perfumes/{perfume.id}/history/{store_product.id}"' not in response.text
+    assert "Price history" in response.text
+    assert 'class="store-history-content"' in response.text

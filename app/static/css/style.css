@@ -555,6 +555,37 @@ h3 {
     font-weight: 700;
 }
 
+.price-history-toggle {
+    font-size: 0.85rem;
+}
+
+.store-history-row {
+    display: none;
+    background: transparent;
+}
+
+.store-history-row.is-open {
+    display: table-row;
+}
+
+.store-history-row:hover {
+    background: transparent;
+}
+
+.store-history-row > td {
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.store-history-content .price-chart {
+    max-width: 480px;
+    margin-bottom: 0.6rem;
+}
+
+.store-history-content .table-scroll {
+    margin-top: 0.4rem;
+}
+
 .table-scroll {
     overflow-x: auto;
     border: 1px solid var(--color-border);
@@ -633,6 +664,77 @@ h3 {
     font-size: 0.8rem;
     color: var(--color-success-fg);
     font-weight: 500;
+}
+
+.real-drop-badge {
+    display: inline-block;
+    margin-top: 0.3rem;
+    font-size: 0.78rem;
+    color: var(--color-success-fg);
+    font-weight: 600;
+}
+
+.price-chart-wrap {
+    margin-top: 1.25rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.price-chart-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.price-chart-stats strong {
+    color: var(--color-text);
+}
+
+.price-chart {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.price-chart-refline {
+    stroke: var(--color-border);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+}
+
+.price-chart-refline-label {
+    fill: var(--color-text-muted);
+    font-size: 9px;
+}
+
+.price-chart-low-point {
+    stroke: var(--color-surface);
+    stroke-width: 1.5;
+}
+
+.price-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.price-chart-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.price-chart-swatch {
+    display: inline-block;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 999px;
 }
 
 .best-price-row {

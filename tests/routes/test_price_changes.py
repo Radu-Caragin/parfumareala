@@ -92,3 +92,45 @@ def test_price_changes_shows_positive_sign_for_price_increase(client, db_session
     response = client.get("/price-changes")
 
     assert "+50.00 RON" in response.text
+
+
+def test_sidebar_has_no_price_changes_badge_when_no_run_yet(client):
+    response = client.get("/")
+
+    assert 'class="nav-badge"' not in response.text
+
+
+def test_sidebar_has_no_price_changes_badge_when_last_run_had_no_changes(client, db_session):
+    perfume, variant, store_product = _perfume_variant_store_product(db_session)
+    run = scrape_runs_repo.start_run(db_session, run_type=RunType.ALL, perfume_count=1, store_count=1)
+    prices_repo.record_if_changed(
+        db_session, store_product_id=store_product.id, scrape_run_id=run.id,
+        price=Decimal("799.00"), old_price=None, currency="RON",
+        discount_percentage=None, availability=Availability.IN_STOCK,
+    )
+
+    response = client.get("/")
+
+    assert 'class="nav-badge"' not in response.text
+
+
+def test_sidebar_shows_price_changes_badge_count_on_any_page(client, db_session):
+    perfume, variant, store_product = _perfume_variant_store_product(db_session)
+    run_1 = scrape_runs_repo.start_run(db_session, run_type=RunType.ALL, perfume_count=1, store_count=1)
+    prices_repo.record_if_changed(
+        db_session, store_product_id=store_product.id, scrape_run_id=run_1.id,
+        price=Decimal("799.00"), old_price=None, currency="RON",
+        discount_percentage=None, availability=Availability.IN_STOCK,
+    )
+    run_2 = scrape_runs_repo.start_run(db_session, run_type=RunType.ALL, perfume_count=1, store_count=1)
+    prices_repo.record_if_changed(
+        db_session, store_product_id=store_product.id, scrape_run_id=run_2.id,
+        price=Decimal("749.00"), old_price=None, currency="RON",
+        discount_percentage=None, availability=Availability.IN_STOCK,
+    )
+
+    # Not just on /price-changes itself - the badge is a global sidebar
+    # element rendered on every page (see app.utils.templates).
+    response = client.get("/")
+
+    assert '<span class="nav-badge">1</span>' in response.text

@@ -70,6 +70,66 @@ class RunProgress:
 
 _progress: dict[str, RunProgress] = {}
 
+# --- run exclusivity -------------------------------------------------------
+#
+# Separate from _progress above (which only exists once a run has actually
+# started executing, inside its background task, well after the route that
+# scheduled it has already returned) - a route posting /check-all or
+# /perfumes/{id}/check must refuse a second overlapping run *before*
+# scheduling the background task, or a duplicate slips through the gap
+# between "request received" and "background task actually starts running".
+# Claimed synchronously in the route handler itself; released in a finally
+# block once the background task (success or failure) is done. A single
+# in-memory set is enough for the same reason _progress is a plain dict -
+# single-process, single-user app, no external store needed, and a stuck
+# claim from a hard crash clears itself on the next restart.
+#
+# Only one "check all" may be active at a time, and it excludes every
+# single-perfume check (a check-all touches every perfume, so it would
+# race a perfume's own in-flight check the same way two check-alls would
+# race each other) - but two *different* perfumes' own checks may run
+# concurrently, since they never touch each other's rows.
+
+ALL_CHECK_KEY = "all"
+_PERFUME_KEY_PREFIX = "perfume:"
+
+_active: set[str] = set()
+
+
+def perfume_check_key(perfume_id: int) -> str:
+    return f"{_PERFUME_KEY_PREFIX}{perfume_id}"
+
+
+def claim_check_all() -> bool:
+    """Reserves the "check all" slot. False (claim refused) if a check-all
+    is already active, or if any single-perfume check is active."""
+    if _active:
+        return False
+    _active.add(ALL_CHECK_KEY)
+    return True
+
+
+def release_check_all() -> None:
+    _active.discard(ALL_CHECK_KEY)
+
+
+def claim_check_perfume(perfume_id: int) -> bool:
+    """Reserves the single-perfume slot for `perfume_id`. False (claim
+    refused) if that perfume already has an active check, or a check-all
+    is running (which already covers every perfume, including this one).
+    """
+    if ALL_CHECK_KEY in _active:
+        return False
+    key = perfume_check_key(perfume_id)
+    if key in _active:
+        return False
+    _active.add(key)
+    return True
+
+
+def release_check_perfume(perfume_id: int) -> None:
+    _active.discard(perfume_check_key(perfume_id))
+
 
 def start_run(key: str, *, stores: list[Store], perfume_count: int) -> None:
     """Begins tracking one check run against the given stores - either one

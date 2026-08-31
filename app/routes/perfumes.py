@@ -13,7 +13,7 @@ from app.database.repositories import scrape_runs as scrape_runs_repo
 from app.database.repositories import store_products as store_products_repo
 from app.database.repositories import stores as stores_repo
 from app.database.repositories import variants as variants_repo
-from app.services import alert_service, scraping_service
+from app.services import alert_service, price_chart_service, scraping_service
 from app.services import progress as progress_service
 from app.services.comparison_service import compare_perfume
 from app.services.perfume_service import create_perfume, update_perfume
@@ -22,15 +22,17 @@ from app.utils.templates import templates
 router = APIRouter()
 
 
-def _check_progress_key(perfume_id: int) -> str:
-    return f"perfume:{perfume_id}"
+_check_progress_key = progress_service.perfume_check_key
 
 
 async def _run_check_perfume(perfume_id: int, progress_key: str) -> None:
     """Runs in the background, after the triggering request has already
     redirected the browser away - see check_perfume_route. Uses its own
     DB session: the request-scoped one from Depends(get_db) is closed by
-    the time this runs.
+    the time this runs. Always releases the exclusivity claim
+    check_perfume_route took before scheduling this - success or failure
+    - or a crashed run would block every future check of this perfume
+    forever.
     """
     db = database_module.get_background_session()
     try:
@@ -41,6 +43,7 @@ async def _run_check_perfume(perfume_id: int, progress_key: str) -> None:
         await scraping_service.check_perfume(db, perfume, enabled_stores, progress_key=progress_key)
     finally:
         db.close()
+        progress_service.release_check_perfume(perfume_id)
 
 
 def _get_perfume_or_404(db: Session, perfume_id: int) -> Perfume:
@@ -112,6 +115,20 @@ async def perfume_detail(request: Request, perfume_id: int, db: Session = Depend
     for variant in variants:
         triggered_alerts.extend(alert_service.current_alert_status(variant))
 
+    # One chart per store (not one combined chart per variant) - each
+    # store's own price history is shown in its own dropdown, never
+    # mixed with another store's line.
+    charts_by_store_product = {
+        sp.id: price_chart_service.build_variant_price_chart([sp])
+        for comparison in comparisons
+        for sp in comparison.store_products
+    }
+    price_drops_by_store_product = {
+        sp.id: price_chart_service.real_price_drop(sp)
+        for comparison in comparisons
+        for sp in comparison.store_products
+    }
+
     check_progress = progress_service.get(_check_progress_key(perfume_id))
     if check_progress is not None and check_progress.done:
         check_progress = None
@@ -124,6 +141,8 @@ async def perfume_detail(request: Request, perfume_id: int, db: Session = Depend
             "comparisons": comparisons,
             "store_results": store_results,
             "triggered_alerts": triggered_alerts,
+            "charts_by_store_product": charts_by_store_product,
+            "price_drops_by_store_product": price_drops_by_store_product,
             "check_progress": check_progress,
             "check_status_url": f"/perfumes/{perfume_id}/check-status",
         },
@@ -133,7 +152,13 @@ async def perfume_detail(request: Request, perfume_id: int, db: Session = Depend
 @router.post("/perfumes/{perfume_id}/check")
 async def check_perfume_route(perfume_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     perfume = _get_perfume_or_404(db, perfume_id)
-    background_tasks.add_task(_run_check_perfume, perfume_id, _check_progress_key(perfume_id))
+    # claim_check_perfume() is refused while this perfume already has an
+    # active check, or a check-all is running (which already covers it);
+    # the redirect happens either way, so a refused claim just lands back
+    # on a page that's already rendering the in-progress run's own status
+    # instead of starting a second, overlapping one.
+    if progress_service.claim_check_perfume(perfume_id):
+        background_tasks.add_task(_run_check_perfume, perfume_id, _check_progress_key(perfume_id))
     return RedirectResponse(url=f"/perfumes/{perfume.id}", status_code=303)
 
 

@@ -97,6 +97,29 @@ def test_check_all_with_no_stores_still_marks_perfumes_checked(client, db_sessio
     assert perfumes_repo.get(db_session, perfume.id).last_checked_at is not None
 
 
+def test_check_all_route_skips_scheduling_when_a_run_is_already_active(client, db_session):
+    # Simulates a second /check-all arriving while one is already in
+    # flight (TestClient runs a scheduled background task to completion
+    # before client.post() itself returns, so a literal second post()
+    # here would find the first run already finished and released - the
+    # claim is taken directly instead, the same state an overlapping
+    # request would find it in).
+    from app.services import progress as progress_service
+
+    perfume = perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"
+    )
+    progress_service.claim_check_all()
+
+    response = client.post("/check-all", follow_redirects=False)
+
+    assert response.status_code == 303
+    # Refused claim -> nothing was scheduled -> the perfume was never
+    # touched by a (nonexistent) second run.
+    db_session.expire_all()
+    assert perfumes_repo.get(db_session, perfume.id).last_checked_at is None
+
+
 def test_dashboard_search_filters_by_brand_or_name(client, db_session):
     perfumes_repo.create(
         db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"

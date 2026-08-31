@@ -10,6 +10,22 @@ from app.database import database as database_module
 from app.database.database import get_db
 from app.database.models import Base
 from app.scrapers import pool as scraper_pool
+from app.services import progress as progress_service
+
+
+@pytest.fixture(autouse=True)
+def _reset_progress_state():
+    """progress_service's run-exclusivity claims (_active) and display
+    state (_progress) are both plain module-level globals (see its own
+    module docstring for why), with no lifetime tied to any one test's
+    db_session/client - a claim left over from a test that exercises
+    /check-all or /perfumes/{id}/check (or calls claim_check_all()/
+    claim_check_perfume() directly) would otherwise silently block every
+    later test's own check from ever being scheduled.
+    """
+    yield
+    progress_service._active.clear()
+    progress_service._progress.clear()
 
 
 @pytest.fixture(autouse=True)

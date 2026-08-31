@@ -43,5 +43,28 @@ def _pending_review_count() -> int:
         db.close()
 
 
+def _price_changes_count() -> int:
+    """Live badge count for the sidebar's "Price changes" link (see
+    base.html) - same pattern and same reasoning as _pending_review_count
+    above (own session via get_background_session, not a bare
+    SessionLocal()). Reuses prices_repo.list_price_changes_for_run - the
+    same single source of truth the /price-changes page itself renders
+    from - rather than a separate, possibly-diverging count query.
+    """
+    from app.database.database import get_background_session
+    from app.database.repositories import prices as prices_repo
+    from app.database.repositories import scrape_runs as scrape_runs_repo
+
+    db = get_background_session()
+    try:
+        latest_run = scrape_runs_repo.get_latest(db)
+        if latest_run is None:
+            return 0
+        return len(prices_repo.list_price_changes_for_run(db, latest_run.id))
+    finally:
+        db.close()
+
+
 templates.env.globals["static_version"] = _static_version
 templates.env.globals["pending_review_count"] = _pending_review_count
+templates.env.globals["price_changes_count"] = _price_changes_count

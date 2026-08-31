@@ -111,12 +111,67 @@
                     {% if sp.coupon_price %}
                         <br><span class="coupon-price">cu codul {{ sp.coupon_code }}: {{ sp.coupon_price }} {{ sp.currency }}</span>
                     {% endif %}
+                    {% set drop = price_drops_by_store_product.get(sp.id) %}
+                    {% if drop %}
+                        <br><span class="real-drop-badge" title="Scădere reală față de ultimul preț înregistrat la acest magazin pentru această variantă - nu prețul &quot;vechi&quot; afișat de magazin.">&#9660; {{ drop|abs }} {{ sp.currency }} real</span>
+                    {% endif %}
                 </td>
                 <td>{{ "In stock" if sp.availability.value == "in_stock" else "Out of stock" }}</td>
                 <td>
                     <a href="{{ sp.product_url }}" target="_blank" rel="noopener">View product</a>
                     &middot;
-                    <a href="/perfumes/{{ perfume.id }}/history/{{ sp.id }}">History</a>
+                    <a
+                        href="#"
+                        class="price-history-toggle"
+                        onclick="event.preventDefault(); var row=this.closest('tr').nextElementSibling; var open=row.classList.toggle('is-open'); this.textContent = open ? 'Hide history' : 'Price history';"
+                    >Price history</a>
+                </td>
+            </tr>
+            <tr class="store-history-row">
+                <td colspan="4">
+                    <div class="store-history-content">
+                        {% set chart = charts_by_store_product.get(sp.id) %}
+                        {% if chart and chart.has_data %}
+                        <div class="price-chart-stats">
+                            <span>Min: <strong>{{ chart.min_price }} {{ sp.currency }}</strong></span>
+                            <span>Avg: <strong>{{ chart.avg_price }} {{ sp.currency }}</strong></span>
+                            <span>Max: <strong>{{ chart.max_price }} {{ sp.currency }}</strong></span>
+                        </div>
+                        <svg class="price-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" role="img" aria-label="Evoluția prețului la {{ sp.store.name }}">
+                            <line x1="{{ chart.plot_left }}" y1="{{ chart.min_y }}" x2="{{ chart.plot_right }}" y2="{{ chart.min_y }}" class="price-chart-refline" />
+                            <line x1="{{ chart.plot_left }}" y1="{{ chart.max_y }}" x2="{{ chart.plot_right }}" y2="{{ chart.max_y }}" class="price-chart-refline" />
+                            <text x="{{ chart.plot_right }}" y="{{ chart.min_y - 4 }}" class="price-chart-refline-label" text-anchor="end">min {{ chart.min_price }}</text>
+                            <text x="{{ chart.plot_right }}" y="{{ chart.max_y - 4 }}" class="price-chart-refline-label" text-anchor="end">max {{ chart.max_price }}</text>
+                            {% for series in chart.series %}
+                            <polyline points="{{ series.polyline }}" fill="none" stroke="{{ series.color }}" stroke-width="2" />
+                            {% for point in series.points %}
+                            <circle cx="{{ point.x }}" cy="{{ point.y }}" r="{{ 4.5 if point.is_store_low else 2.75 }}" fill="{{ series.color }}" class="{{ 'price-chart-low-point' if point.is_store_low else '' }}">
+                                <title>{{ point.price }} RON &mdash; {{ point.recorded_at.strftime("%d %b %Y") }}{% if point.is_store_low %} (cel mai mic preț înregistrat){% endif %}</title>
+                            </circle>
+                            {% endfor %}
+                            {% endfor %}
+                        </svg>
+                        {% endif %}
+                        <div class="table-scroll">
+                        <table class="offers-table">
+                            <thead>
+                                <tr><th>Date</th><th>Price</th><th>Old price</th><th>Status</th></tr>
+                            </thead>
+                            <tbody>
+                            {% for entry in sp.price_history|sort(attribute="recorded_at", reverse=true) %}
+                                <tr>
+                                    <td>{{ entry.recorded_at.strftime("%d %b %Y, %H:%M") }}</td>
+                                    <td>{{ entry.price }} {{ entry.currency }}</td>
+                                    <td>{% if entry.old_price %}{{ entry.old_price }} {{ entry.currency }}{% else %}&mdash;{% endif %}</td>
+                                    <td>{{ "In stock" if entry.availability.value == "in_stock" else "Out of stock" }}</td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="4" class="empty-state">No price history recorded yet.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
                 </td>
             </tr>
         {% endfor %}

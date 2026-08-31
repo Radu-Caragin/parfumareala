@@ -16,7 +16,7 @@ from app.utils.templates import templates
 
 router = APIRouter()
 
-_ALL_CHECK_PROGRESS_KEY = "all"
+_ALL_CHECK_PROGRESS_KEY = progress_service.ALL_CHECK_KEY
 _SORT_KEYS = {"name", "last_checked", "best_price"}
 _MIN_DATETIME = datetime.min
 
@@ -25,7 +25,9 @@ async def _run_check_all(progress_key: str) -> None:
     """Runs in the background, after the triggering request has already
     redirected the browser away - see check_all_route. Uses its own DB
     session: the request-scoped one from Depends(get_db) is closed by the
-    time this runs.
+    time this runs. Always releases the exclusivity claim check_all_route
+    took before scheduling this - success or failure - or a crashed run
+    would block every future check-all forever.
     """
     db = database_module.get_background_session()
     try:
@@ -34,6 +36,7 @@ async def _run_check_all(progress_key: str) -> None:
         await scraping_service.check_all_perfumes(db, perfumes, enabled_stores, progress_key=progress_key)
     finally:
         db.close()
+        progress_service.release_check_all()
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -106,7 +109,13 @@ async def dashboard(
 @router.post("/check-all")
 async def check_all_route(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     perfumes = perfumes_repo.list_all(db)
-    if perfumes:
+    # claim_check_all() is refused while a check-all - or any single-
+    # perfume check - is already active; the redirect happens either way,
+    # so a refused claim just lands back on a page that's already
+    # rendering the in-progress run's own status instead of starting a
+    # second, overlapping one (see progress_service's own module
+    # docstring for why overlapping runs are unsafe).
+    if perfumes and progress_service.claim_check_all():
         background_tasks.add_task(_run_check_all, _ALL_CHECK_PROGRESS_KEY)
     return RedirectResponse(url="/", status_code=303)
 
