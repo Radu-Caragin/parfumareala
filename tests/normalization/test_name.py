@@ -4,6 +4,7 @@ from app.normalization.name import (
     extract_core_name,
     names_plausibly_match,
     normalize_name,
+    strip_known_brand_alias,
     word_sets_overlap_fully,
 )
 
@@ -140,3 +141,17 @@ def test_names_plausibly_match_true_for_exact_and_fuzzy_and_containment():
 
 def test_names_plausibly_match_false_for_unrelated_names():
     assert names_plausibly_match("erba pura", "erba gold", ambiguous_threshold=70) is False
+
+
+def test_strip_known_brand_alias_strips_the_alias_actually_present():
+    # Regression: Brasty.ro's search results spell this brand "Jean P.
+    # Gaultier", never "Jean Paul Gaultier" written out in full
+    # (confirmed live) - stripping only the literal target brand would
+    # leave "p gaultier" behind as unrelated leftover noise.
+    core = strip_known_brand_alias("Jean P. Gaultier Le Male Elixir 100 ml", "Jean Paul Gaultier")
+    assert core == "le male elixir"
+
+
+def test_strip_known_brand_alias_falls_back_to_literal_brand_when_no_alias_present():
+    core = strip_known_brand_alias("Xerjoff Erba Gold 100 ml", "Xerjoff")
+    assert core == "erba gold"

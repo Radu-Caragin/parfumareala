@@ -301,3 +301,14 @@ def test_upsert_pending_skips_rejected_match(db_session):
 
     assert result is None
     assert match_review_repo.list_pending(db_session) == []
+
+
+def test_count_pending_only_counts_pending_status(db_session):
+    perfume, store = _perfume_and_store(db_session)
+    assert match_review_repo.count_pending(db_session) == 0
+
+    match = match_review_repo.upsert_pending(db_session, **_pending_match_kwargs(perfume, store))
+    assert match_review_repo.count_pending(db_session) == 1
+
+    match_review_repo.mark_confirmed(db_session, match)
+    assert match_review_repo.count_pending(db_session) == 0

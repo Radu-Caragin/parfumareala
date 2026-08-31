@@ -74,6 +74,17 @@ Investigation summary:
   is removed, tanking the fuzzy-match score for no real reason. Stripped
   only for name-matching purposes - ScrapedOffer.raw_title keeps the
   original text.
+- 2026-08-31 audit: unlike Dior ("Dior (Christian Dior) ..." - the bare
+  target brand still appears as a substring), Jean Paul Gaultier is
+  spelled "Jean P. Gaultier" here - confirmed live, "paul" written out in
+  full never appears at all. A plain substring check against the literal
+  target brand rejected every real result outright, before the name
+  check ever ran. Now alias-aware end to end: the brand pre-check tries
+  every brand_lookup_candidates() alias, and the brand actually present
+  is stripped via strip_known_brand_alias() (not a bare
+  extract_core_name(text, brand=target_brand)) so "p gaultier" doesn't
+  linger as unstripped noise once only the literal "jean paul gaultier"
+  is removed.
 """
 
 import json
@@ -83,9 +94,9 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin
 
-from app.normalization.brand import normalize_brand
+from app.normalization.brand import brand_lookup_candidates
 from app.normalization.concentration import extract_concentration
-from app.normalization.name import extract_core_name, names_plausibly_match, normalize_name
+from app.normalization.name import names_plausibly_match, normalize_name, strip_known_brand_alias
 from app.normalization.tester import is_tester
 from app.normalization.text_utils import strip_diacritics
 from app.normalization.volume import extract_volume_ml
@@ -193,12 +204,17 @@ class BrastyScraper(BaseScraper):
         # Coarse pre-check: search is site-wide now, not confined to one
         # already-resolved brand's own page, so a completely unrelated
         # brand must be ruled out before even trying a name match (see
-        # module docstring).
-        if normalize_brand(target_brand) not in normalize_name(raw_title):
+        # module docstring). Alias-aware, not a bare substring check -
+        # confirmed live, this store's own search results spell Jean Paul
+        # Gaultier as "Jean P. Gaultier" (never written out in full), the
+        # same "a store can call a brand something else" problem as
+        # Dior/Christian Dior (see brand_lookup_candidates).
+        normalized_title = normalize_name(raw_title)
+        if not any(alias in normalized_title for alias in brand_lookup_candidates(target_brand)):
             return False
 
         cleaned_title = BrastyScraper._name_for_matching(raw_title)
-        candidate_name = extract_core_name(cleaned_title, brand=target_brand)
+        candidate_name = strip_known_brand_alias(cleaned_title, target_brand)
         target_normalized = normalize_name(target_name)
         return names_plausibly_match(candidate_name, target_normalized, ambiguous_threshold)
 
@@ -219,7 +235,7 @@ class BrastyScraper(BaseScraper):
                 product_url=candidate.product_url,
                 store_product_identifier=candidate.product_id,
                 brand=candidate.brand,
-                perfume_name=extract_core_name(cleaned_title, brand=candidate.brand),
+                perfume_name=strip_known_brand_alias(cleaned_title, candidate.brand),
                 concentration=extract_concentration(candidate.raw_title),
                 volume_ml=extract_volume_ml(candidate.raw_title),
                 tester=is_tester(candidate.raw_title) or is_tester(candidate.product_url),

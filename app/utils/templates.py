@@ -23,4 +23,25 @@ def _static_version(relative_path: str) -> int:
         return 0
 
 
+def _pending_review_count() -> int:
+    """Live badge count for the sidebar's "Needs review" link (see
+    base.html) - called from every page, so it needs its own session
+    rather than a route-injected Depends(get_db) one. Reuses
+    get_background_session() (not a bare SessionLocal()) specifically so
+    it goes through the SAME indirection the test suite already
+    monkeypatches to an isolated test database (see tests/conftest.py's
+    `client` fixture) - calling SessionLocal() directly here would hit
+    the real data/*.db file even during tests.
+    """
+    from app.database.database import get_background_session
+    from app.database.repositories import match_review as match_review_repo
+
+    db = get_background_session()
+    try:
+        return match_review_repo.count_pending(db)
+    finally:
+        db.close()
+
+
 templates.env.globals["static_version"] = _static_version
+templates.env.globals["pending_review_count"] = _pending_review_count

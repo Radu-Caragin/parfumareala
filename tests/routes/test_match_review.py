@@ -44,6 +44,31 @@ def test_match_review_shows_empty_state_when_nothing_pending(client):
     assert "Nothing to review right now." in response.text
 
 
+def test_sidebar_has_no_badge_when_nothing_pending(client):
+    response = client.get("/")
+
+    assert 'class="nav-badge"' not in response.text
+
+
+def test_sidebar_badge_shows_pending_count_on_any_page(client, db_session):
+    _pending_match(db_session)
+
+    # Not just on /match-review itself - the badge is a global sidebar
+    # element rendered on every page (see app.utils.templates).
+    response = client.get("/")
+
+    assert '<span class="nav-badge">1</span>' in response.text
+
+
+def test_sidebar_badge_disappears_after_confirming_the_only_pending_match(client, db_session):
+    perfume, store, match = _pending_match(db_session)
+
+    client.post(f"/match-review/{match.id}/confirm")
+    response = client.get("/")
+
+    assert 'class="nav-badge"' not in response.text
+
+
 def test_match_review_lists_pending_match(client, db_session):
     perfume, store, match = _pending_match(db_session)
 

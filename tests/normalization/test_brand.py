@@ -32,3 +32,11 @@ def test_brand_lookup_candidates_includes_initio_alias():
     # "initio-parfums-prives", not the bare "initio" this app tracks it as
     # (confirmed live: 0 vs 18 matching sitemap entries).
     assert brand_lookup_candidates("Initio") == ["initio", "initio parfums prives"]
+
+
+def test_brand_lookup_candidates_includes_jean_paul_gaultier_alias():
+    # Regression: confirmed live on two independent stores - Vivantis's
+    # own brand directory and Brasty's product search results both spell
+    # this house "Jean P. Gaultier", never "Jean Paul Gaultier" written
+    # out in full.
+    assert brand_lookup_candidates("Jean Paul Gaultier") == ["jean paul gaultier", "jean p. gaultier"]

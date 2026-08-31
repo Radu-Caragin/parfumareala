@@ -125,7 +125,18 @@ def _fake_request_handler(requested: list[str], routes: dict[str, str]):
         requested.append(url)
         html = routes.get(url)
         if html is None:
-            return _FakeResponse(404, "not found")
+            # Faithful to the real contract: this stub replaces
+            # CurlCffiScraper.request() entirely (see its own
+            # raise_for_status() call, curl_base.py), so it must raise on
+            # a 4xx the same way, not return the error response - a
+            # caller catching RequestError with a chained CurlHTTPError
+            # (see VivantisScraper.search_perfume's "brand sells no
+            # perfumes" branch) would otherwise never see one.
+            response = _FakeResponse(404, "not found")
+            try:
+                response.raise_for_status()
+            except Exception as exc:
+                raise RequestError(f"vivantis: request to {url} failed") from exc
         return _FakeResponse(200, html)
 
     return handler

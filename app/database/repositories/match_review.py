@@ -6,7 +6,7 @@ is data access only.
 
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database.models import AmbiguousMatch, Availability, MatchReviewStatus
@@ -26,6 +26,13 @@ def list_pending(db: Session) -> list[AmbiguousMatch]:
             .order_by(AmbiguousMatch.first_seen_at.desc())
         )
     )
+
+
+def count_pending(db: Session) -> int:
+    """Cheap count, no row/relationship loading - used for the sidebar's
+    "Needs review" badge (see app.utils.templates), rendered on every
+    page, not the full list_pending() a route handler actually needs."""
+    return db.scalar(select(func.count()).select_from(AmbiguousMatch).where(AmbiguousMatch.status == MatchReviewStatus.PENDING)) or 0
 
 
 def upsert_pending(

@@ -12,7 +12,7 @@ import httpx
 from app.config.settings import Settings
 from app.scrapers.exceptions import ParsingError
 from app.scrapers.registry import get_scraper_class
-from app.scrapers.stores.brasty import BrastyScraper
+from app.scrapers.stores.brasty import BrastyScraper, _SearchCandidate
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent.parent / "fixtures" / "brasty"
 
@@ -94,6 +94,43 @@ def test_search_perfume_handles_brand_alias_in_suggester_name():
     assert by_volume[200].perfume_name == "sauvage"
     assert by_volume[200].availability == "in_stock"
     assert by_volume[100].availability == "out_of_stock"
+
+
+def test_is_plausible_candidate_resolves_jean_paul_gaultier_via_confirmed_alias():
+    # Regression: unlike Dior ("Dior (Christian Dior) ..." - the bare
+    # target brand still appears as a substring), this store's search
+    # results spell Jean Paul Gaultier "Jean P. Gaultier" - "paul"
+    # written out in full never appears at all (confirmed live). A plain
+    # substring check against the literal target brand rejected every
+    # real result outright, before the name check ever ran.
+    assert BrastyScraper._is_plausible_candidate(
+        "Jean P. Gaultier Le Male Elixir Parfum bărbați 75 ml",
+        "Jean Paul Gaultier",
+        "Le Male Elixir",
+        ambiguous_threshold=70,
+    ) is True
+
+
+def test_is_plausible_candidate_strips_the_full_alias_from_perfume_name():
+    # The brand actually present ("Jean P. Gaultier") must be stripped as
+    # a whole, not just the literal "Jean Paul Gaultier" - otherwise
+    # "p gaultier" lingers as unrelated leftover noise in the extracted
+    # name (see strip_known_brand_alias).
+    candidate = _SearchCandidate(
+        raw_title="Jean P. Gaultier Le Male Elixir Parfum bărbați 75 ml",
+        product_url="https://www.brasty.ro/jean-p-gaultier-le-male-elixir-parfum-barbati-75-ml",
+        product_id="1",
+        price=Decimal("433"),
+        availability="in_stock",
+        brand="Jean Paul Gaultier",
+    )
+
+    async def run():
+        async with BrastyScraper(settings=_test_settings()) as scraper:
+            return await scraper.parse_product(candidate)
+
+    offers = asyncio.run(run())
+    assert offers[0].perfume_name == "le male elixir"
 
 
 def test_parse_price_handles_thousands_dot_and_nbsp():

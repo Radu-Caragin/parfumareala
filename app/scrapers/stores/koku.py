@@ -28,9 +28,11 @@ Investigation summary:
   (e.g. ".../apa-de-toaleta-christian-dior-sauvage" for a perfume
   monitored as brand "Dior", confirmed live) - stripping only the literal
   target brand left "christian" behind as an unrelated leftover token,
-  dragging a real match's fuzzy score down for no reason. _strip_brand()
-  tries every known alias, longest first, so a multi-word alias actually
-  present in the text is consumed as a whole.
+  dragging a real match's fuzzy score down for no reason.
+  strip_known_brand_alias() (app.normalization.name - shared with
+  Brasty's scraper, which needed the exact same fix for a different
+  brand/store pairing) tries every known alias, longest first, so a
+  multi-word alias actually present in the text is consumed as a whole.
 - Each brand's category page (`/parfumuri?brand={id}`, paginated via
   `&page=N`) lists PRODUCT FAMILIES, not individual bottle sizes - unlike
   Parfimo/Parfumat/Vivantis/Brasty (one size = one URL), each card here
@@ -71,7 +73,7 @@ from bs4.element import Tag
 
 from app.normalization.brand import brand_lookup_candidates, normalize_brand
 from app.normalization.concentration import extract_concentration
-from app.normalization.name import extract_core_name, names_plausibly_match, normalize_name
+from app.normalization.name import names_plausibly_match, normalize_name, strip_known_brand_alias
 from app.normalization.price import parse_price
 from app.normalization.tester import is_tester
 from app.normalization.volume import extract_volume_ml
@@ -194,26 +196,9 @@ class KokuScraper(BaseScraper):
         # authoritative check happens later in matching_service once the
         # real title is known from the detail page).
         slug_as_text = candidate.product_url.rstrip("/").rsplit("/", 1)[-1].replace("-", " ")
-        candidate_name = KokuScraper._strip_brand(slug_as_text, target_brand)
+        candidate_name = strip_known_brand_alias(slug_as_text, target_brand)
         target_normalized = normalize_name(target_name)
         return names_plausibly_match(candidate_name, target_normalized, ambiguous_threshold)
-
-    @staticmethod
-    def _strip_brand(text: str, target_brand: str) -> str:
-        # Regression: URL slugs and variant titles here spell some brands
-        # under their confirmed-live alias, not the name this app calls
-        # them (e.g. "christian-dior-sauvage...", never a bare "dior-
-        # sauvage..." slug, for a perfume monitored as brand "Dior") - a
-        # plain extract_core_name(text, brand=target_brand) only strips
-        # the literal target name, leaving "christian" behind as an
-        # unrelated leftover token that drags the fuzzy-match score down
-        # for no real reason. Every known alias is tried, longest first,
-        # so a multi-word alias actually present in the text is consumed
-        # as a whole instead of leaving part of it behind.
-        for alias in sorted(brand_lookup_candidates(target_brand), key=len, reverse=True):
-            if alias in normalize_name(text):
-                return extract_core_name(text, brand=alias)
-        return extract_core_name(text, brand=target_brand)
 
     @staticmethod
     def _has_next_page(soup: BeautifulSoup) -> bool:
@@ -259,7 +244,7 @@ class KokuScraper(BaseScraper):
             product_url=candidate.product_url,
             store_product_identifier=link.get("data-variant-value"),
             brand=candidate.brand,
-            perfume_name=self._strip_brand(variant_title, candidate.brand),
+            perfume_name=strip_known_brand_alias(variant_title, candidate.brand),
             concentration=extract_concentration(variant_title),
             volume_ml=extract_volume_ml(variant_title),
             tester=is_tester(variant_title),

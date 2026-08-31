@@ -7,24 +7,62 @@ store row, its historical prices, or previously discovered products
 """
 
 from collections import defaultdict
+from dataclasses import dataclass
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.database.models import Perfume, StoreProduct
+from app.database.models import Perfume, ScrapeResultStatus, StoreProduct
+from app.database.repositories import scrape_runs as scrape_runs_repo
 from app.database.repositories import store_products as store_products_repo
 from app.database.repositories import stores as stores_repo
 from app.utils.templates import templates
 
 router = APIRouter()
 
+# A store actually responding - whether or not it happened to have the
+# product (IN_STOCK/OUT_OF_STOCK/NOT_FOUND are all a real answer) - is
+# healthy. Only these two mean the scraper itself couldn't get a real
+# answer at all (README's own distinction: "these are deliberately kept
+# distinct so you know whether the store was actually checked").
+_UNHEALTHY_STATUSES = {ScrapeResultStatus.SCRAPING_ERROR, ScrapeResultStatus.STORE_UNAVAILABLE}
+
+
+@dataclass(frozen=True)
+class _StoreHealth:
+    recent_statuses: list[ScrapeResultStatus]
+    total: int
+    healthy_count: int
+    consecutive_failures: int
+
+
+def _compute_health(statuses: list[ScrapeResultStatus]) -> _StoreHealth:
+    healthy_count = sum(1 for s in statuses if s not in _UNHEALTHY_STATUSES)
+    consecutive_failures = 0
+    for s in statuses:
+        if s not in _UNHEALTHY_STATUSES:
+            break
+        consecutive_failures += 1
+    return _StoreHealth(
+        recent_statuses=statuses,
+        total=len(statuses),
+        healthy_count=healthy_count,
+        consecutive_failures=consecutive_failures,
+    )
+
 
 @router.get("/stores", response_class=HTMLResponse)
 async def list_stores(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     stores = stores_repo.list_all(db)
-    return templates.TemplateResponse(request, "stores/list.html", {"stores": stores})
+    health_by_store = {
+        store.id: _compute_health(scrape_runs_repo.list_recent_statuses_for_store(db, store.id))
+        for store in stores
+    }
+    return templates.TemplateResponse(
+        request, "stores/list.html", {"stores": stores, "health_by_store": health_by_store}
+    )
 
 
 @router.get("/stores/catalog", response_class=HTMLResponse)

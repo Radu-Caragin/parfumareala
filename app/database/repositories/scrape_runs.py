@@ -71,6 +71,20 @@ def list_for_perfume(db: Session, perfume_id: int, *, limit: int = 50) -> list[S
     )
 
 
+def list_recent_statuses_for_store(db: Session, store_id: int, *, limit: int = 20) -> list[ScrapeResultStatus]:
+    """Most recent `limit` ScrapeResult statuses for one store, most
+    recent first (across every perfume checked against it) - used for
+    the Stores page's health strip (see app.routes.stores)."""
+    return list(
+        db.scalars(
+            select(ScrapeResult.status)
+            .where(ScrapeResult.store_id == store_id)
+            .order_by(ScrapeResult.created_at.desc(), ScrapeResult.id.desc())
+            .limit(limit)
+        )
+    )
+
+
 def get_latest_results_for_perfume(db: Session, perfume_id: int) -> list[ScrapeResult]:
     """One ScrapeResult per store: the most recent check for this perfume.
 

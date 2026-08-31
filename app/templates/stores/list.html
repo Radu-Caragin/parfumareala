@@ -24,6 +24,22 @@
             {% if store.last_error %}
             <p class="error">Last error: {{ store.last_error }}</p>
             {% endif %}
+            {% set health = health_by_store[store.id] %}
+            {% if health.total %}
+            <div class="store-health">
+                <span class="health-strip">
+                    {% for status in health.recent_statuses|reverse %}
+                    <span class="health-dot health-dot-{{ 'up' if status.value not in ['scraping_error', 'store_unavailable'] else 'down' }}" title="{{ status.value }}"></span>
+                    {% endfor %}
+                </span>
+                <span class="meta">{{ health.healthy_count }}/{{ health.total }} healthy (last {{ health.total }} checks)</span>
+                {% if health.consecutive_failures > 0 %}
+                <span class="badge badge-health-warning">Failing for last {{ health.consecutive_failures }} check{{ 's' if health.consecutive_failures != 1 else '' }}</span>
+                {% endif %}
+            </div>
+            {% else %}
+            <p class="meta">No checks yet.</p>
+            {% endif %}
         </div>
         <form method="post" action="/stores/{{ store.id }}/toggle">
             {% if store.enabled %}

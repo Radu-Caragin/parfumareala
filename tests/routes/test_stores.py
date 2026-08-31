@@ -4,12 +4,23 @@ and the "by store" catalog view.
 
 from decimal import Decimal
 
-from app.database.models import Availability
+from app.database.models import Availability, RunType, ScrapeResultStatus
 from app.database.repositories import perfumes as perfumes_repo
+from app.database.repositories import scrape_runs as scrape_runs_repo
 from app.database.repositories import store_products as store_products_repo
 from app.database.repositories import stores as stores_repo
 from app.database.repositories import variants as variants_repo
 from app.database.seed import seed_initial_stores
+
+
+def _record_result(db_session, *, store, status):
+    perfume = perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Erba Gold", normalized_brand="xerjoff", normalized_name="erba gold"
+    )
+    run = scrape_runs_repo.start_run(db_session, run_type=RunType.SINGLE, perfume_count=1, store_count=1)
+    scrape_runs_repo.add_result(
+        db_session, scrape_run_id=run.id, perfume_id=perfume.id, store_id=store.id, status=status
+    )
 
 
 def test_stores_list_shows_seeded_fragranza(client, db_session):
@@ -74,6 +85,53 @@ def test_nav_has_stores_link(client):
     response = client.get("/")
 
     assert 'href="/stores"' in response.text
+
+
+def test_stores_list_shows_no_checks_yet_when_no_history(client, db_session):
+    seed_initial_stores(db_session)
+
+    response = client.get("/stores")
+
+    assert "No checks yet." in response.text
+
+
+def test_stores_list_shows_healthy_summary_with_no_warning(client, db_session):
+    seed_initial_stores(db_session)
+    store = stores_repo.get_by_slug(db_session, "fragranza")
+    for status in [ScrapeResultStatus.IN_STOCK, ScrapeResultStatus.NOT_FOUND, ScrapeResultStatus.OUT_OF_STOCK]:
+        _record_result(db_session, store=store, status=status)
+
+    response = client.get("/stores")
+
+    assert "3/3 healthy (last 3 checks)" in response.text
+    assert "Failing for last" not in response.text
+
+
+def test_stores_list_shows_failing_warning_for_consecutive_recent_errors(client, db_session):
+    seed_initial_stores(db_session)
+    store = stores_repo.get_by_slug(db_session, "fragranza")
+    _record_result(db_session, store=store, status=ScrapeResultStatus.IN_STOCK)
+    _record_result(db_session, store=store, status=ScrapeResultStatus.SCRAPING_ERROR)
+    _record_result(db_session, store=store, status=ScrapeResultStatus.STORE_UNAVAILABLE)
+
+    response = client.get("/stores")
+
+    assert "1/3 healthy (last 3 checks)" in response.text
+    assert "Failing for last 2 checks" in response.text
+
+
+def test_stores_list_no_warning_when_most_recent_check_succeeded(client, db_session):
+    # An old error followed by a recent success must not be flagged as
+    # "currently failing" - consecutive_failures only counts backward
+    # from the most recent result.
+    seed_initial_stores(db_session)
+    store = stores_repo.get_by_slug(db_session, "fragranza")
+    _record_result(db_session, store=store, status=ScrapeResultStatus.SCRAPING_ERROR)
+    _record_result(db_session, store=store, status=ScrapeResultStatus.IN_STOCK)
+
+    response = client.get("/stores")
+
+    assert "Failing for last" not in response.text
 
 
 def test_catalog_shows_empty_state_when_no_stores(client):

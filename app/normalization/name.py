@@ -11,6 +11,7 @@ import re
 
 from rapidfuzz import fuzz
 
+from app.normalization.brand import brand_lookup_candidates
 from app.normalization.concentration import strip_concentration_tokens
 from app.normalization.tester import strip_tester_tokens
 from app.normalization.text_utils import collapse_whitespace, strip_diacritics
@@ -147,3 +148,23 @@ def names_plausibly_match(candidate_name: str, target_name: str, ambiguous_thres
     if fuzz.token_sort_ratio(candidate_name, target_name) >= ambiguous_threshold:
         return True
     return word_sets_overlap_fully(candidate_name, target_name)
+
+
+def strip_known_brand_alias(text: str, target_brand: str) -> str:
+    """extract_core_name(text, brand=target_brand), but tries every
+    confirmed alias for target_brand (see
+    app.normalization.brand.brand_lookup_candidates) instead of just its
+    literal spelling - for text where a store spells the brand under a
+    different, equally correct alias. Stripping only the literal target
+    name leaves the alias's other words behind as unrelated leftover
+    tokens that drag a real candidate's fuzzy-match score down for no
+    reason - confirmed live on Koku.ro (URL slugs spelling Dior as
+    "christian-dior") and Brasty.ro (search results spelling Jean Paul
+    Gaultier as "Jean P. Gaultier"). Every known alias is tried, longest
+    first, so a multi-word alias actually present in the text is
+    consumed as a whole instead of leaving part of it behind.
+    """
+    for alias in sorted(brand_lookup_candidates(target_brand), key=len, reverse=True):
+        if alias in normalize_name(text):
+            return extract_core_name(text, brand=alias)
+    return extract_core_name(text, brand=target_brand)

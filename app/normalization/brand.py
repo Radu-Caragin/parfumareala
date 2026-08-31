@@ -34,6 +34,12 @@ _ALIAS_GROUPS: list[tuple[str, ...]] = [
     # sitemap has zero product URLs under the bare "initio" prefix but 18
     # under "initio-parfums-prives".
     ("initio", "initio parfums prives"),
+    # Confirmed live on two independent stores: Vivantis's own brand
+    # directory lists this house as "Jean P. Gaultier" (no "Jean Paul
+    # Gaultier" entry at all), and Brasty's product search results spell
+    # it the same abbreviated way ("Jean P. Gaultier Le Male Elixir...") -
+    # "paul" written out in full never appears on either site.
+    ("jean paul gaultier", "jean p. gaultier"),
 ]
 _ALIASES: dict[str, tuple[str, ...]] = {}
 for _group in _ALIAS_GROUPS:
@@ -45,8 +51,12 @@ def brand_lookup_candidates(raw_brand: str) -> list[str]:
     """Every normalized form worth trying when looking a brand up in a
     store's own brand directory - the requested brand's own normalized
     name first, then any confirmed alternate name a store might use
-    instead (see _ALIAS_GROUPS above). Not used for the strict brand-
-    match check in matching_service - that stays an exact compare against
-    the monitored perfume's own normalized_brand."""
+    instead (see _ALIAS_GROUPS above). Also used by
+    matching_service.validate_candidate's own brand-match gate - a
+    candidate's brand is accepted if it's any of these, not just an exact
+    match against the monitored perfume's own normalized_brand (confirmed
+    necessary live: fixing only a scraper's own discovery-stage alias
+    handling and not this downstream gate left the Dior/Christian Dior
+    case rejected end-to-end even after the scraper itself found it)."""
     normalized = normalize_brand(raw_brand)
     return [normalized, *_ALIASES.get(normalized, ())]
