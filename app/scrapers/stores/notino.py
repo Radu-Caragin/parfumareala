@@ -87,11 +87,10 @@ from decimal import Decimal, InvalidOperation
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
-from rapidfuzz import fuzz
 
 from app.normalization.brand import brand_lookup_candidates
 from app.normalization.concentration import extract_concentration
-from app.normalization.name import extract_core_name, normalize_name
+from app.normalization.name import extract_core_name, names_plausibly_match, normalize_name
 from app.normalization.text_utils import strip_diacritics
 from app.normalization.volume import extract_volume_ml
 from app.schemas.scraping import ScrapedOffer
@@ -165,9 +164,7 @@ class NotinoScraper(CurlCffiScraper):
 
             remainder = match.group(2).replace("-", " ")
             core_name = extract_core_name(remainder, brand=brand)
-            if core_name == target_normalized or fuzz.token_sort_ratio(
-                core_name, target_normalized
-            ) >= ambiguous_threshold:
+            if names_plausibly_match(core_name, target_normalized, ambiguous_threshold):
                 candidates.append(_SearchCandidate(product_url=url, core_name=core_name))
 
         return candidates

@@ -43,7 +43,6 @@ doesn't care about live progress needs no changes.
 import asyncio
 import logging
 from dataclasses import dataclass
-from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
@@ -56,6 +55,7 @@ from app.database.models import (
     ScrapeResultStatus,
     Store,
 )
+from app.database.repositories import match_review as match_review_repo
 from app.database.repositories import perfumes as perfumes_repo
 from app.database.repositories import prices as prices_repo
 from app.database.repositories import scrape_runs as scrape_runs_repo
@@ -64,6 +64,7 @@ from app.database.repositories import stores as stores_repo
 from app.database.repositories import variants as variants_repo
 from app.normalization.concentration import extract_concentration
 from app.normalization.exclusions import check_exclusion
+from app.normalization.price import compute_discount_percentage
 from app.normalization.volume import extract_volume_ml
 from app.schemas.scraping import ScrapedOffer
 from app.scrapers import pool as scraper_pool
@@ -71,7 +72,7 @@ from app.scrapers import stores as _store_scrapers  # noqa: F401 - side effect: 
 from app.scrapers.exceptions import StoreUnavailable
 from app.services import alert_service
 from app.services import progress as progress_service
-from app.services.matching_service import MatchCandidate, resolve_variant, validate_candidate
+from app.services.matching_service import MatchCandidate, MatchConfidence, resolve_variant, validate_candidate
 
 logger = logging.getLogger(__name__)
 
@@ -359,6 +360,8 @@ def _resolve_offer(
             "%s: rejected candidate for '%s' (%s): %s",
             store.slug, perfume.name, result.confidence.value, result.reason,
         )
+        if result.confidence == MatchConfidence.AMBIGUOUS and result.name_score is not None:
+            _record_ambiguous_match(db, perfume, store, offer, candidate, result.name_score)
         return None
 
     variant = resolve_variant(db, perfume, candidate)
@@ -366,6 +369,41 @@ def _resolve_offer(
         return None
 
     return variant, offer
+
+
+def _record_ambiguous_match(
+    db: Session,
+    perfume: Perfume,
+    store: Store,
+    offer: ScrapedOffer,
+    candidate: MatchCandidate,
+    name_score: int,
+) -> None:
+    """Surface a name-fuzzy AMBIGUOUS candidate in the review queue instead
+    of silently dropping it (see AmbiguousMatch's docstring) - a human
+    decides once, via /match-review, whether it's genuinely the same
+    perfume under a different name. concentration/volume_ml are guaranteed
+    non-None here: validate_candidate only reaches the name-fuzzy check
+    after its own missing_variant_fields check has already passed.
+    """
+    match_review_repo.upsert_pending(
+        db,
+        perfume_id=perfume.id,
+        store_id=store.id,
+        raw_title=offer.raw_title,
+        candidate_brand=candidate.brand,
+        candidate_name=candidate.name,
+        concentration=candidate.concentration,
+        volume_ml=candidate.volume_ml,
+        tester=candidate.tester,
+        price=offer.price,
+        old_price=offer.old_price,
+        currency=offer.currency,
+        availability=Availability(offer.availability),
+        product_url=offer.product_url,
+        store_product_identifier=offer.store_product_identifier,
+        match_score=name_score,
+    )
 
 
 def _offer_is_better(candidate: ScrapedOffer, current: ScrapedOffer) -> bool:
@@ -382,7 +420,7 @@ def _offer_is_better(candidate: ScrapedOffer, current: ScrapedOffer) -> bool:
 
 def _persist_offer(db: Session, store: Store, variant: PerfumeVariant, offer: ScrapedOffer, scrape_run_id: int) -> None:
     availability = Availability(offer.availability)
-    discount_percentage = _compute_discount_percentage(offer.price, offer.old_price)
+    discount_percentage = compute_discount_percentage(offer.price, offer.old_price)
 
     store_product = store_products_repo.upsert_offer(
         db,
@@ -410,9 +448,3 @@ def _persist_offer(db: Session, store: Store, variant: PerfumeVariant, offer: Sc
         discount_percentage=discount_percentage,
         availability=availability,
     )
-
-
-def _compute_discount_percentage(price: Decimal, old_price: Decimal | None) -> int | None:
-    if old_price is None or old_price <= 0 or price >= old_price:
-        return None
-    return int(round((old_price - price) / old_price * 100))

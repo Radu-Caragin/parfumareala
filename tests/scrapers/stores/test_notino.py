@@ -186,19 +186,22 @@ def test_search_perfume_finds_exact_match_via_sitemap():
     assert not any("bvlgari" in u for u in urls)
 
 
-def test_search_perfume_excludes_refill_product_at_discovery_stage():
-    # "Sauvage Eau de Parfum Rezerva" scores below the ambiguous threshold
-    # against plain "Sauvage" (its remainder core name is "sauvage
-    # rezerva") - filtered before ever being fetched. Belt-and-suspenders
-    # with the "rezerva" exclusion pattern in exclusions.py, which would
-    # also catch it later if it were ever a closer match for some other
-    # search.
+def test_search_perfume_no_longer_excludes_refill_product_at_discovery_stage():
+    # "Sauvage Eau de Parfum Rezerva"'s core name ("sauvage rezerva")
+    # contains every word of plain "Sauvage" (see names_plausibly_match's
+    # word-set containment fallback, added for Xerjoff's "Naxos"/"XJ 1861
+    # Naxos"), so this permissive pre-filter does let it through now - it
+    # was never the authoritative check anyway. It's still never
+    # persisted or surfaced: the "rezerva" exclusion pattern in
+    # exclusions.py (see tests/normalization/test_exclusions.py) catches
+    # it downstream in matching_service.validate_candidate, which runs
+    # the exclusion check before anything else.
     async def run():
         async with await _scraper_with_routes(_ROUTES) as scraper:
             return await scraper.search_perfume("Dior", "Sauvage")
 
     candidates = asyncio.run(run())
-    assert not any("rezerva" in c.product_url for c in candidates)
+    assert any("rezerva" in c.product_url for c in candidates)
 
 
 def test_search_perfume_resolves_brand_via_confirmed_alias():

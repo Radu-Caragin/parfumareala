@@ -8,7 +8,8 @@ from decimal import Decimal
 
 import pytest
 
-from app.database.models import Availability, RunStatus, Store
+from app.database.models import Availability, MatchReviewStatus, RunStatus, Store
+from app.database.repositories import match_review as match_review_repo
 from app.database.repositories import perfumes as perfumes_repo
 from app.database.repositories import prices as prices_repo
 from app.database.repositories import scrape_runs as scrape_runs_repo
@@ -19,7 +20,7 @@ from app.scrapers import pool as scraper_pool
 from app.scrapers.base import BaseScraper
 from app.scrapers.exceptions import RequestError, StoreUnavailable
 from app.scrapers.registry import SCRAPER_REGISTRY
-from app.services import scraping_service
+from app.services import match_review_service, scraping_service
 
 
 class _FakeScraper(BaseScraper):
@@ -345,6 +346,77 @@ def test_duplicate_variant_offers_prefer_in_stock_over_out_of_stock(db_session, 
     assert len(store_products) == 1
     assert store_products[0].availability == Availability.IN_STOCK
     assert store_products[0].current_price == Decimal("363.00")
+
+
+def test_ambiguous_name_offer_is_queued_for_review_not_silently_dropped(db_session, fake_store):
+    # Regression: an AMBIGUOUS name-fuzzy candidate used to just vanish
+    # (logged at debug level, nothing else) - it must now show up in the
+    # review queue instead, and must NOT be persisted as a real offer
+    # until a human confirms it.
+    perfume = _perfume(db_session)
+    _FakeScraper.offers = [
+        _offer(perfume_name="Erba Glod", raw_title="Xerjoff Erba Glod EDP 100 ml")
+    ]
+
+    asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
+
+    assert variants_repo.list_for_perfume(db_session, perfume.id) == []
+
+    pending = match_review_repo.list_pending(db_session)
+    assert len(pending) == 1
+    match = pending[0]
+    assert match.perfume_id == perfume.id
+    assert match.store_id == fake_store.id
+    assert match.candidate_name == "Erba Glod"
+    assert match.concentration == "EDP"
+    assert match.volume_ml == 100
+    assert match.price == Decimal("799.00")
+    assert match.status == MatchReviewStatus.PENDING
+
+
+def test_missing_variant_fields_ambiguous_offer_is_not_queued_for_review(db_session, fake_store):
+    # A missing concentration/volume is a different problem ("we don't
+    # know the size"), not "might be a differently-named perfume" - must
+    # not show up in the /match-review queue.
+    perfume = _perfume(db_session)
+    _FakeScraper.offers = [_offer(raw_title="Xerjoff Erba Gold", concentration=None, volume_ml=None)]
+
+    asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
+
+    assert match_review_repo.list_pending(db_session) == []
+
+
+def test_rescraping_the_same_ambiguous_offer_updates_in_place_not_duplicated(db_session, fake_store):
+    perfume = _perfume(db_session)
+    _FakeScraper.offers = [
+        _offer(perfume_name="Erba Glod", raw_title="Xerjoff Erba Glod EDP 100 ml", price=Decimal("799.00"))
+    ]
+    asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
+
+    _FakeScraper.offers = [
+        _offer(perfume_name="Erba Glod", raw_title="Xerjoff Erba Glod EDP 100 ml", price=Decimal("749.00"))
+    ]
+    asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
+
+    pending = match_review_repo.list_pending(db_session)
+    assert len(pending) == 1
+    assert pending[0].price == Decimal("749.00")
+
+
+def test_rejected_ambiguous_match_is_never_resurfaced(db_session, fake_store):
+    perfume = _perfume(db_session)
+    _FakeScraper.offers = [
+        _offer(perfume_name="Erba Glod", raw_title="Xerjoff Erba Glod EDP 100 ml")
+    ]
+    asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
+
+    match = match_review_repo.list_pending(db_session)[0]
+    match_review_service.reject_match(db_session, match)
+
+    # Same candidate, scraped again - must not come back.
+    asyncio.run(scraping_service.check_perfume(db_session, perfume, [fake_store]))
+
+    assert match_review_repo.list_pending(db_session) == []
 
 
 def test_check_all_perfumes_updates_every_perfume(db_session, fake_store):

@@ -80,11 +80,31 @@ def test_is_plausible_candidate_strips_concentration_baked_into_name_field():
     assert FragranzaScraper._is_plausible_candidate(
         "Nishane", "Ani Extrait De Parfum", "Nishane", "Ani", ambiguous_threshold=70
     )
-    # A genuinely different product ("Ani X") must still not pass as an
-    # exact match, even though it's superficially close to "Ani".
+    # A different, unrelated Nishane fragrance must never pass this
+    # permissive pre-filter at all - not even a shared brand and this
+    # store's own concentration-baked-into-name-field quirk are enough.
     assert FragranzaScraper._is_plausible_candidate(
-        "Nishane", "Ani X Extrait De Parfum", "Nishane", "Ani", ambiguous_threshold=95
+        "Nishane", "Hacivat Extrait De Parfum", "Nishane", "Ani", ambiguous_threshold=70
     ) is False
+
+
+def test_is_plausible_candidate_lets_flanker_through_the_cheap_prefilter_but_not_as_exact():
+    # "Ani X" is a real, different Nishane fragrance from "Ani" (confirmed
+    # live elsewhere in this project) - this permissive discovery-stage
+    # pre-filter isn't meant to make that call (it never was: see this
+    # function's own docstring), so it correctly lets it through here.
+    # names_plausibly_match's word-set containment fallback (added for
+    # Xerjoff's "Naxos"/"XJ 1861 Naxos") also, deliberately, doesn't
+    # weaken this: "ani x" already scores 75 against "ani" on the plain
+    # fuzzy check alone, above ambiguous_threshold=70 - this candidate was
+    # always going to reach the review queue at the real, configured
+    # threshold, never silently dropped here. What actually guarantees
+    # "Ani X" is never auto-matched to monitored "Ani" is
+    # matching_service.validate_candidate downstream (see
+    # test_matching_service.py's flanker test), not this cheap check.
+    assert FragranzaScraper._is_plausible_candidate(
+        "Nishane", "Ani X Extrait De Parfum", "Nishane", "Ani", ambiguous_threshold=70
+    ) is True
 
 
 def test_parse_product_cleans_concentration_out_of_perfume_name():

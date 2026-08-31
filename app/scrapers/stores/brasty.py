@@ -83,11 +83,9 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urljoin
 
-from rapidfuzz import fuzz
-
 from app.normalization.brand import normalize_brand
 from app.normalization.concentration import extract_concentration
-from app.normalization.name import extract_core_name, normalize_name
+from app.normalization.name import extract_core_name, names_plausibly_match, normalize_name
 from app.normalization.tester import is_tester
 from app.normalization.text_utils import strip_diacritics
 from app.normalization.volume import extract_volume_ml
@@ -202,10 +200,7 @@ class BrastyScraper(BaseScraper):
         cleaned_title = BrastyScraper._name_for_matching(raw_title)
         candidate_name = extract_core_name(cleaned_title, brand=target_brand)
         target_normalized = normalize_name(target_name)
-        if candidate_name == target_normalized:
-            return True
-
-        return fuzz.token_sort_ratio(candidate_name, target_normalized) >= ambiguous_threshold
+        return names_plausibly_match(candidate_name, target_normalized, ambiguous_threshold)
 
     # -- fetch / parse ------------------------------------------------------
     # No HTTP call needed here - see module docstring: everything a

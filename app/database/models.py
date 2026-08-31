@@ -56,6 +56,12 @@ class RunStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class MatchReviewStatus(str, enum.Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+
+
 class Perfume(Base):
     __tablename__ = "perfumes"
 
@@ -73,6 +79,12 @@ class Perfume(Base):
         back_populates="perfume", cascade="all, delete-orphan"
     )
     scrape_results: Mapped[list["ScrapeResult"]] = relationship(
+        back_populates="perfume", cascade="all, delete-orphan"
+    )
+    name_aliases: Mapped[list["PerfumeNameAlias"]] = relationship(
+        back_populates="perfume", cascade="all, delete-orphan"
+    )
+    ambiguous_matches: Mapped[list["AmbiguousMatch"]] = relationship(
         back_populates="perfume", cascade="all, delete-orphan"
     )
 
@@ -122,6 +134,9 @@ class Store(Base):
         back_populates="store", cascade="all, delete-orphan"
     )
     scrape_results: Mapped[list["ScrapeResult"]] = relationship(
+        back_populates="store", cascade="all, delete-orphan"
+    )
+    ambiguous_matches: Mapped[list["AmbiguousMatch"]] = relationship(
         back_populates="store", cascade="all, delete-orphan"
     )
 
@@ -256,3 +271,85 @@ class PriceAlert(Base):
 
     def __repr__(self) -> str:
         return f"<PriceAlert variant_id={self.perfume_variant_id} target={self.target_price}>"
+
+
+class PerfumeNameAlias(Base):
+    """A confirmed alternate name for a monitored Perfume - e.g. a store
+    lists Xerjoff's "Naxos" as "XJ 1861 Naxos". Added only when a human
+    confirms a pending AmbiguousMatch is genuinely the same perfume, never
+    guessed automatically. Once added, a future scraped candidate whose
+    extracted name matches this alias exactly is treated the same as
+    matching Perfume.normalized_name (see matching_service.validate_candidate).
+    """
+
+    __tablename__ = "perfume_name_aliases"
+    __table_args__ = (UniqueConstraint("perfume_id", "normalized_alias", name="uq_perfume_name_alias"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    perfume_id: Mapped[int] = mapped_column(ForeignKey("perfumes.id", ondelete="CASCADE"), nullable=False)
+
+    alias: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_alias: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    perfume: Mapped["Perfume"] = relationship(back_populates="name_aliases")
+
+    def __repr__(self) -> str:
+        return f"<PerfumeNameAlias perfume_id={self.perfume_id} alias={self.alias!r}>"
+
+
+class AmbiguousMatch(Base):
+    """A scraped candidate that plausibly refers to a monitored Perfume but
+    whose extracted name didn't score high enough to trust automatically
+    (the AMBIGUOUS tier from matching_service.validate_candidate, name-
+    fuzzy-score reason specifically - not a missing-variant-fields or
+    brand-mismatch rejection, both of which stay silently dropped as
+    before). Surfaced for a human to confirm or reject once, instead of
+    either silently discarding it (the old behavior) or auto-accepting it
+    (risky - the exact same shape of mismatch can just as easily be a
+    genuinely different flanker product, e.g. Nishane's "Hacivat" vs
+    "Hacivat X", confirmed live to be different fragrances).
+
+    One row per (perfume, store, product_url) - re-scraping the same
+    still-undecided candidate updates price/last_seen_at in place rather
+    than piling up duplicates (see match_review_service). Confirming adds
+    a PerfumeNameAlias and immediately persists the offer; rejecting is
+    remembered so the same candidate is never re-surfaced.
+    """
+
+    __tablename__ = "ambiguous_matches"
+    __table_args__ = (UniqueConstraint("perfume_id", "store_id", "product_url", name="uq_ambiguous_match"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    perfume_id: Mapped[int] = mapped_column(ForeignKey("perfumes.id", ondelete="CASCADE"), nullable=False)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), nullable=False)
+
+    raw_title: Mapped[str] = mapped_column(String(500), nullable=False)
+    candidate_brand: Mapped[str] = mapped_column(String(255), nullable=False)
+    candidate_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    concentration: Mapped[str] = mapped_column(String(50), nullable=False)
+    volume_ml: Mapped[int] = mapped_column(Integer, nullable=False)
+    tester: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    old_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="RON")
+    availability: Mapped[Availability] = mapped_column(SAEnum(Availability), nullable=False)
+    product_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    store_product_identifier: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    match_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[MatchReviewStatus] = mapped_column(
+        SAEnum(MatchReviewStatus), nullable=False, default=MatchReviewStatus.PENDING
+    )
+
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    perfume: Mapped["Perfume"] = relationship(back_populates="ambiguous_matches")
+    store: Mapped["Store"] = relationship(back_populates="ambiguous_matches")
+
+    def __repr__(self) -> str:
+        return f"<AmbiguousMatch perfume_id={self.perfume_id} store_id={self.store_id} status={self.status}>"

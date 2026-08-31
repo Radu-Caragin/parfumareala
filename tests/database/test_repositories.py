@@ -2,8 +2,10 @@
 
 from decimal import Decimal
 
-from app.database.models import Availability, RunType
+from app.database.models import Availability, MatchReviewStatus, RunType, Store
 from app.database.repositories import alerts as alerts_repo
+from app.database.repositories import match_review as match_review_repo
+from app.database.repositories import name_aliases as name_aliases_repo
 from app.database.repositories import perfumes as perfumes_repo
 from app.database.repositories import prices as prices_repo
 from app.database.repositories import scrape_runs as scrape_runs_repo
@@ -220,3 +222,82 @@ def test_alert_lifecycle(db_session):
 
     alerts_repo.set_enabled(db_session, alert, False)
     assert alert not in alerts_repo.list_enabled(db_session)
+
+
+def test_name_alias_get_or_create_is_idempotent(db_session):
+    perfume = perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Naxos", normalized_brand="xerjoff", normalized_name="naxos"
+    )
+
+    first = name_aliases_repo.get_or_create(db_session, perfume_id=perfume.id, alias="XJ 1861 Naxos")
+    second = name_aliases_repo.get_or_create(db_session, perfume_id=perfume.id, alias="xj  1861   naxos")
+
+    assert first.id == second.id  # same normalized form -> not duplicated
+    assert name_aliases_repo.list_for_perfume(db_session, perfume.id) == [first]
+
+
+def _perfume_and_store(db_session):
+    store = Store(name="Fake Store", slug="fake-store", base_url="https://fake.test", enabled=True, scraper_identifier="fake-store")
+    db_session.add(store)
+    db_session.commit()
+    perfume = perfumes_repo.create(
+        db_session, brand="Xerjoff", name="Naxos", normalized_brand="xerjoff", normalized_name="naxos"
+    )
+    return perfume, store
+
+
+def _pending_match_kwargs(perfume, store, **overrides):
+    defaults = dict(
+        perfume_id=perfume.id,
+        store_id=store.id,
+        raw_title="Xerjoff XJ 1861 Naxos Eau de Parfum 100 ml",
+        candidate_brand="Xerjoff",
+        candidate_name="XJ 1861 Naxos",
+        concentration="EDP",
+        volume_ml=100,
+        tester=False,
+        price=Decimal("899.00"),
+        old_price=None,
+        currency="RON",
+        availability=Availability.IN_STOCK,
+        product_url="https://fake.test/xj-1861-naxos",
+        store_product_identifier=None,
+        match_score=62,
+    )
+    defaults.update(overrides)
+    return defaults
+
+
+def test_upsert_pending_creates_new_row(db_session):
+    perfume, store = _perfume_and_store(db_session)
+
+    match = match_review_repo.upsert_pending(db_session, **_pending_match_kwargs(perfume, store))
+
+    assert match is not None
+    assert match.status == MatchReviewStatus.PENDING
+    assert match_review_repo.list_pending(db_session) == [match]
+
+
+def test_upsert_pending_updates_existing_pending_row_in_place(db_session):
+    perfume, store = _perfume_and_store(db_session)
+    match_review_repo.upsert_pending(db_session, **_pending_match_kwargs(perfume, store, price=Decimal("899.00")))
+
+    updated = match_review_repo.upsert_pending(
+        db_session, **_pending_match_kwargs(perfume, store, price=Decimal("849.00"))
+    )
+
+    pending = match_review_repo.list_pending(db_session)
+    assert len(pending) == 1
+    assert pending[0].id == updated.id
+    assert pending[0].price == Decimal("849.00")
+
+
+def test_upsert_pending_skips_rejected_match(db_session):
+    perfume, store = _perfume_and_store(db_session)
+    match = match_review_repo.upsert_pending(db_session, **_pending_match_kwargs(perfume, store))
+    match_review_repo.mark_rejected(db_session, match)
+
+    result = match_review_repo.upsert_pending(db_session, **_pending_match_kwargs(perfume, store))
+
+    assert result is None
+    assert match_review_repo.list_pending(db_session) == []

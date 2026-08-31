@@ -59,8 +59,17 @@ def test_search_perfume_queries_suggester_with_brand_and_name():
     titles = {c.raw_title for c in candidates}
     assert "Dior (Christian Dior) Sauvage Parfum bărbați 200 ml" in titles
     assert "Dior (Christian Dior) Sauvage Eau de Toilette bărbați 100 ml" in titles
-    # Same brand, different product line - must not pass the name filter.
-    assert "Dior (Christian Dior) Eau Sauvage deostick bărbați 75 ml" not in titles
+    # Same brand, different product line ("Eau Sauvage", not "Sauvage") -
+    # this cheap pre-filter does let it through (its core name "eau
+    # sauvage deostick" contains every word of "sauvage" - see
+    # names_plausibly_match's word-set containment fallback, added for
+    # Xerjoff's "Naxos"/"XJ 1861 Naxos"). It's never persisted or
+    # surfaced though: a deodorant stick has no extractable concentration
+    # wording at all, so matching_service.validate_candidate rejects it
+    # as AMBIGUOUS "missing_variant_fields" before the name check ever
+    # runs - the same silent-drop behavior as always for that reason (see
+    # test_matching_service.py::test_missing_variant_fields_is_ambiguous).
+    assert "Dior (Christian Dior) Eau Sauvage deostick bărbați 75 ml" in titles
     # A completely different brand's product must not pass the brand
     # pre-check, even though the suggester itself returned it.
     assert "Nishane Ani Extrait de Parfum unisex 50 ml" not in titles
@@ -104,13 +113,18 @@ def test_discover_offers_end_to_end_against_fixture():
 
     # No detail-page fetch happens for this store (see module docstring) -
     # discover_offers must still yield fully-formed offers straight from
-    # the suggester response alone.
-    assert len(offers) == 2
+    # the suggester response alone. Three, not two: the "Eau Sauvage
+    # deostick" candidate now clears the cheap discovery-stage pre-filter
+    # too (see test_search_perfume_queries_suggester_with_brand_and_name)
+    # - discover_offers itself doesn't filter on concentration, only
+    # scraping_service's downstream matching_service call does.
+    assert len(offers) == 3
     by_volume = {o.volume_ml: o for o in offers}
     assert by_volume[200].price == Decimal("1013")
     assert by_volume[200].concentration == "Parfum"
     assert by_volume[100].price == Decimal("493")
     assert by_volume[100].concentration == "EDT"
+    assert by_volume[75].concentration is None  # the deostick - no concentration wording at all
 
 
 def test_search_perfume_raises_when_suggester_response_unrecognized():

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Needs review - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<h1>Needs review</h1>
+<p class="meta">
+    Products a store search found that might be one of your perfumes under a different name -
+    confirm once and it's remembered for every future check.
+</p>
+
+{% if matches %}
+<ul class="review-list">
+    {% for match in matches %}
+    <li class="review-item">
+        <div class="review-main">
+            <div class="review-target">
+                Your perfume: <a href="/perfumes/{{ match.perfume.id }}">{{ match.perfume.brand }} {{ match.perfume.name }}</a>
+            </div>
+            <div class="review-found">
+                Found at <strong>{{ match.store.name }}</strong> as:
+                <span class="review-candidate-name">{{ match.candidate_brand }} {{ match.candidate_name }}</span>
+                <span class="meta">({{ match.raw_title }})</span>
+            </div>
+            <span class="meta">
+                {{ match.concentration }} &mdash; {{ match.volume_ml }} ml
+                {%- if match.tester %} &mdash; Tester{% endif -%}
+                &mdash; {{ match.price }} {{ match.currency }}
+                &mdash; name similarity: {{ match.match_score }}%
+            </span>
+        </div>
+        <div class="review-actions">
+            <a href="{{ match.product_url }}" target="_blank" rel="noopener">View product</a>
+            <form method="post" action="/match-review/{{ match.id }}/confirm" style="display:inline;">
+                <button type="submit" class="button small">Yes, same perfume</button>
+            </form>
+            <form method="post" action="/match-review/{{ match.id }}/reject" style="display:inline;">
+                <button type="submit" class="button secondary small">No, different</button>
+            </form>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="empty-state">Nothing to review right now.</p>
+{% endif %}
+{% endblock %}

@@ -9,6 +9,8 @@ function with the concentration/volume/tester detectors.
 
 import re
 
+from rapidfuzz import fuzz
+
 from app.normalization.concentration import strip_concentration_tokens
 from app.normalization.tester import strip_tester_tokens
 from app.normalization.text_utils import collapse_whitespace, strip_diacritics
@@ -98,3 +100,50 @@ def extract_core_name(raw_title: str, *, brand: str | None = None) -> str:
     text = _AROMATIX_PATTERN.sub(" ", text)
     text = _STRAY_PUNCTUATION_PATTERN.sub(" ", text)
     return collapse_whitespace(text)
+
+
+def word_sets_overlap_fully(candidate_name: str, target_name: str) -> bool:
+    """True if the monitored perfume's entire set of words is present, in
+    any order, inside the candidate's. Both arguments must already be
+    normalized (see normalize_name).
+
+    Deliberately one-directional (target's words ⊆ candidate's, never the
+    reverse): a store wraps the real name in EXTRA decoration - a
+    collection/edition code, a product-line prefix - it doesn't truncate
+    it. Confirmed live, Xerjoff's "Naxos" is officially "XJ 1861 Naxos" on
+    some stores; token_sort_ratio alone scores that only 56 (well under
+    any reasonable threshold) because it scores the *whole* string and
+    "xj 1861" dominates a 13-character candidate, even though "naxos" is
+    entirely and unambiguously present. Checking the reverse direction too
+    would instead catch the opposite, genuinely risky shape: a candidate
+    whose name is a strict PREFIX of the target's is usually a different,
+    simpler flanker, not the same perfume with decoration added (e.g. a
+    plain "Sauvage" candidate must never be treated as a possible match
+    for a monitored "Sauvage Elixir" just because "sauvage" is one of its
+    words - confirmed live, that's a separate fragrance entirely).
+
+    Used both by matching_service.validate_candidate (routes such a case
+    to AMBIGUOUS - the /match-review queue - rather than a silent,
+    permanent REJECTED) and by every store scraper's own discovery-stage
+    pre-filter (see names_plausibly_match below) - fixing only one of
+    those two gates still drops the candidate at the other, same lesson
+    as the Dior/Christian Dior brand-alias bug earlier in this project's
+    history.
+    """
+    target_tokens = set(target_name.split())
+    candidate_tokens = set(candidate_name.split())
+    return bool(target_tokens) and target_tokens <= candidate_tokens
+
+
+def names_plausibly_match(candidate_name: str, target_name: str, ambiguous_threshold: int) -> bool:
+    """Cheap "is this worth fetching in full" check shared by every store
+    scraper's own discovery-stage pre-filter. Both arguments must already
+    be normalized (see normalize_name). Deliberately permissive - the
+    authoritative decision happens later, in
+    matching_service.validate_candidate, once the exact variant is known.
+    """
+    if candidate_name == target_name:
+        return True
+    if fuzz.token_sort_ratio(candidate_name, target_name) >= ambiguous_threshold:
+        return True
+    return word_sets_overlap_fully(candidate_name, target_name)

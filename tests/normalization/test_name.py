@@ -1,6 +1,11 @@
 import pytest
 
-from app.normalization.name import extract_core_name, normalize_name
+from app.normalization.name import (
+    extract_core_name,
+    names_plausibly_match,
+    normalize_name,
+    word_sets_overlap_fully,
+)
 
 
 def test_normalize_name_lowercases_and_trims():
@@ -105,3 +110,33 @@ def test_extract_core_name_strips_aromatix_sub_line_prefix():
     # dragged the fuzzy score to ~69 on both, just under the ambiguous
     # threshold, silently dropping a real, in-stock match.
     assert extract_core_name("French Avenue Aromatix Sun Kissed Extract de Parfum", brand="French Avenue") == "sun kissed"
+
+
+def test_word_sets_overlap_fully_catches_target_wrapped_in_decoration():
+    # The confirmed-live motivating case: Xerjoff's "Naxos" is officially
+    # "XJ 1861 Naxos" on some stores.
+    assert word_sets_overlap_fully("xj 1861 naxos", "naxos") is True
+
+
+def test_word_sets_overlap_fully_rejects_reverse_direction():
+    # A candidate whose name is a strict PREFIX of the target's must not
+    # match - that's usually a different, simpler flanker product, not
+    # the same perfume with decoration added (confirmed live: Dior's
+    # plain "Sauvage" is a different fragrance from "Sauvage Elixir").
+    assert word_sets_overlap_fully("sauvage", "sauvage elixir") is False
+
+
+def test_word_sets_overlap_fully_rejects_partial_overlap():
+    # Sharing one word is not containment - neither name's word set is
+    # fully present in the other's.
+    assert word_sets_overlap_fully("erba pura", "erba gold") is False
+
+
+def test_names_plausibly_match_true_for_exact_and_fuzzy_and_containment():
+    assert names_plausibly_match("erba gold", "erba gold", ambiguous_threshold=70) is True
+    assert names_plausibly_match("erbagold", "erba gold", ambiguous_threshold=70) is True  # fuzzy
+    assert names_plausibly_match("xj 1861 naxos", "naxos", ambiguous_threshold=70) is True  # containment
+
+
+def test_names_plausibly_match_false_for_unrelated_names():
+    assert names_plausibly_match("erba pura", "erba gold", ambiguous_threshold=70) is False

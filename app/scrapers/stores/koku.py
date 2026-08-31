@@ -68,11 +68,10 @@ from dataclasses import dataclass
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
-from rapidfuzz import fuzz
 
 from app.normalization.brand import brand_lookup_candidates, normalize_brand
 from app.normalization.concentration import extract_concentration
-from app.normalization.name import extract_core_name, normalize_name
+from app.normalization.name import extract_core_name, names_plausibly_match, normalize_name
 from app.normalization.price import parse_price
 from app.normalization.tester import is_tester
 from app.normalization.volume import extract_volume_ml
@@ -197,10 +196,7 @@ class KokuScraper(BaseScraper):
         slug_as_text = candidate.product_url.rstrip("/").rsplit("/", 1)[-1].replace("-", " ")
         candidate_name = KokuScraper._strip_brand(slug_as_text, target_brand)
         target_normalized = normalize_name(target_name)
-        if candidate_name == target_normalized:
-            return True
-
-        return fuzz.token_sort_ratio(candidate_name, target_normalized) >= ambiguous_threshold
+        return names_plausibly_match(candidate_name, target_normalized, ambiguous_threshold)
 
     @staticmethod
     def _strip_brand(text: str, target_brand: str) -> str:

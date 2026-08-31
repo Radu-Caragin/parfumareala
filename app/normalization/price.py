@@ -28,3 +28,13 @@ def parse_price(text: str) -> Decimal | None:
         return Decimal(f"{integer_part}.{decimal_part}")
     except InvalidOperation:
         return None
+
+
+def compute_discount_percentage(price: Decimal, old_price: Decimal | None) -> int | None:
+    """Shared by scraping_service (persisting a fresh offer) and
+    match_review_service (persisting a confirmed AmbiguousMatch) - both
+    need the exact same rule for deriving a discount percentage from a
+    price/old_price pair."""
+    if old_price is None or old_price <= 0 or price >= old_price:
+        return None
+    return int(round((old_price - price) / old_price * 100))

@@ -62,10 +62,16 @@ def test_search_perfume_filters_by_brand_and_name():
     assert "erba gold" in core_names
     # Dior Sauvage (wrong brand) must never pass the pre-filter.
     assert not any("sauvage" in name for name in core_names)
-    # the decant's core name scores too low against "erba gold" to pass either.
     urls = {c.product_url for c in candidates}
     assert "https://www.parfimo.ro/dior-sauvage-apa-de-parfum-100-ml_z1234567/" not in urls
-    assert "https://www.parfimo.ro/xerjoff-v-erba-gold-apa-de-parfum-decant-1-ml_z1098491/" not in urls
+    # The decant's core name ("v erba gold decant") contains every word of
+    # "erba gold" (see names_plausibly_match's word-set containment
+    # fallback, added for Xerjoff's "Naxos"/"XJ 1861 Naxos"), so this
+    # cheap pre-filter does let it through now - it's still never
+    # persisted or surfaced, though: check_exclusion's "decant" pattern
+    # catches it downstream (see test_search_perfume_builds_correct_product_urls
+    # below, which asserts exactly that against this same fixture entry).
+    assert "https://www.parfimo.ro/xerjoff-v-erba-gold-apa-de-parfum-decant-1-ml_z1098491/" in urls
 
 
 def test_search_perfume_builds_correct_product_urls():

@@ -79,11 +79,10 @@ from decimal import Decimal, InvalidOperation
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
-from rapidfuzz import fuzz
 
 from app.normalization.brand import brand_lookup_candidates, normalize_brand
 from app.normalization.concentration import extract_concentration
-from app.normalization.name import extract_core_name, normalize_name
+from app.normalization.name import extract_core_name, names_plausibly_match, normalize_name
 from app.normalization.tester import is_tester
 from app.normalization.volume import extract_volume_ml
 from app.schemas.scraping import ScrapedOffer
@@ -271,10 +270,7 @@ class ParfumatScraper(BaseScraper):
 
         candidate_name = extract_core_name(raw_title, brand=item_brand)
         target_normalized = normalize_name(target_name)
-        if candidate_name == target_normalized:
-            return True
-
-        return fuzz.token_sort_ratio(candidate_name, target_normalized) >= ambiguous_threshold
+        return names_plausibly_match(candidate_name, target_normalized, ambiguous_threshold)
 
     @staticmethod
     def _has_next_page(soup: BeautifulSoup) -> bool:

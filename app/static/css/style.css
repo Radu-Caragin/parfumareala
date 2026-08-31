@@ -943,3 +943,55 @@ h3 {
     font-size: 0.88rem;
     color: var(--color-text-muted);
 }
+
+.review-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.review-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.review-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.review-target {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+.review-target > a {
+    color: var(--color-text-muted);
+}
+
+.review-found {
+    font-weight: 600;
+}
+
+.review-candidate-name {
+    color: var(--color-primary);
+}
+
+.review-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}

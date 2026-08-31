@@ -76,7 +76,19 @@ Then open http://127.0.0.1:8000 in your browser. The SQLite database and
 - **Price alerts**: on a perfume's page, each variant has a small "Alert if
   price ≤ ..." form. When triggered, a banner appears at the top of the
   page - this is computed live from the current stored prices, so it's
-  accurate even without running a fresh check.
+  accurate even without running a fresh check. The "Alerts" tab lists every
+  triggered alert across every perfume in one place.
+- **Price changes**: the "Price changes" tab shows every price that moved at
+  the last check (any perfume, any size, any concentration), with the exact
+  +/- difference.
+- **Needs review**: a store search can find a product that plausibly is one
+  of your perfumes, just under a different name the fuzzy matcher doesn't
+  trust automatically (e.g. Xerjoff's "Naxos" is officially "XJ 1861 Naxos"
+  on some stores). Instead of silently discarding those, the "Needs review"
+  tab lists them for a one-time yes/no decision. Confirming one remembers it
+  as an alternate name for that perfume (so it's recognized automatically
+  from then on, at any store) and immediately saves its price; rejecting one
+  means that exact listing is never suggested again.
 - **Enable/disable a store**: Stores page → toggle. Disabling only stops
   future checks for that store - it never deletes its price history or
   previously discovered products.

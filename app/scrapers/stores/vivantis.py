@@ -95,11 +95,10 @@ from decimal import Decimal, InvalidOperation
 
 from bs4 import BeautifulSoup
 from curl_cffi.requests.exceptions import HTTPError as CurlHTTPError
-from rapidfuzz import fuzz
 
 from app.normalization.brand import brand_lookup_candidates, normalize_brand
 from app.normalization.concentration import extract_concentration
-from app.normalization.name import extract_core_name, normalize_name
+from app.normalization.name import extract_core_name, names_plausibly_match, normalize_name
 from app.normalization.volume import extract_volume_ml
 from app.schemas.scraping import ScrapedOffer
 from app.scrapers.curl_base import CurlCffiScraper
@@ -190,9 +189,7 @@ class VivantisScraper(CurlCffiScraper):
             for item in items:
                 item_brand = self._extract_brand(item) or brand
                 core_name = extract_core_name(item.get("name") or "", brand=item_brand)
-                if core_name == target_normalized or fuzz.token_sort_ratio(
-                    core_name, target_normalized
-                ) >= ambiguous_threshold:
+                if names_plausibly_match(core_name, target_normalized, ambiguous_threshold):
                     candidates.append(_SearchCandidate(item=item, core_name=core_name))
 
             if not has_next:
