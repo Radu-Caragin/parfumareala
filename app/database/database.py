@@ -29,6 +29,9 @@ _ADDED_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("coupon_code", "VARCHAR(50)"),
         ("coupon_price", "NUMERIC(10, 2)"),
     ],
+    "collection_perfumes": [
+        ("volume_ml", "INTEGER"),
+    ],
 }
 
 

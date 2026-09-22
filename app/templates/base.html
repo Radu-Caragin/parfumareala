@@ -38,6 +38,7 @@
                 <a href="/stores" class="{{ 'active' if request.url.path == '/stores' else '' }}">Stores</a>
                 <a href="/stores/catalog" class="{{ 'active' if request.url.path == '/stores/catalog' else '' }}">By store</a>
                 <a href="/alerts" class="{{ 'active' if request.url.path == '/alerts' else '' }}">Alerts</a>
+                <a href="/collection" class="{{ 'active' if request.url.path == '/collection' else '' }}">Collection</a>
                 <a href="/price-changes" class="{{ 'active' if request.url.path == '/price-changes' else '' }}">
                     Price changes{% set changes_count = price_changes_count() %}{% if changes_count %} <span class="nav-badge">{{ changes_count }}</span>{% endif %}
                 </a>

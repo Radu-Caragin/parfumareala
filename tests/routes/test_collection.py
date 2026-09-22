@@ -1,0 +1,186 @@
+"""Integration tests for the personal Collection tab.
+
+fragrantica.fetch_page (the only network call involved) is monkeypatched
+per test - parse_page itself runs for real against the fixture HTML, so
+these tests still exercise the real parsing path end to end.
+"""
+
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+from app.database.repositories import collection as collection_repo
+from app.scrapers import fragrantica
+from app.scrapers.exceptions import RequestError
+
+FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "fragrantica"
+URL = "https://www.fragrantica.com/perfume/Initio-Parfums-Prives/Narcotic-Delight-89368.html"
+
+
+def _fixture_html() -> str:
+    return (FIXTURES_DIR / "narcotic_delight.html").read_text(encoding="utf-8")
+
+
+@pytest.fixture()
+def mock_fetch(monkeypatch):
+    async def fake_fetch_page(url: str) -> str:
+        return _fixture_html()
+
+    monkeypatch.setattr(fragrantica, "fetch_page", fake_fetch_page)
+    return fake_fetch_page
+
+
+def test_collection_page_shows_empty_state(client):
+    response = client.get("/collection")
+
+    assert response.status_code == 200
+    assert "Your collection is empty" in response.text
+
+
+def test_add_from_fragrantica_url_persists_perfume_accords_and_notes(client, db_session, mock_fetch):
+    response = client.post("/collection", data={"url": URL}, follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/collection"
+
+    items = collection_repo.list_all(db_session)
+    assert len(items) == 1
+    item = items[0]
+    assert item.brand == "Initio Parfums Prives"
+    assert item.name == "Narcotic Delight"
+    assert item.fragrantica_url == URL
+    assert {a.name for a in item.accords} == {"sweet", "vanilla", "cherry"}
+    assert {n.name for n in item.notes} == {"Cherry", "Pink Pepper", "Cognac", "Tobacco", "Vanilla"}
+
+
+def test_collection_page_lists_added_perfume_with_notes_and_accords(client, mock_fetch):
+    client.post("/collection", data={"url": URL})
+
+    response = client.get("/collection")
+
+    assert "Initio Parfums Prives Narcotic Delight" in response.text
+    assert "sweet" in response.text
+    assert "Cherry" in response.text
+
+
+def test_add_rejects_non_fragrantica_url(client, db_session):
+    response = client.post("/collection", data={"url": "https://example.com/foo"})
+
+    assert response.status_code == 400
+    assert "doesn&#39;t look like a Fragrantica" in response.text or "doesn't look like a Fragrantica" in response.text
+    assert collection_repo.list_all(db_session) == []
+
+
+def test_add_rejects_duplicate_url(client, db_session, mock_fetch):
+    client.post("/collection", data={"url": URL})
+
+    response = client.post("/collection", data={"url": URL})
+
+    assert response.status_code == 400
+    assert "Already in your collection" in response.text
+    assert len(collection_repo.list_all(db_session)) == 1
+
+
+def test_add_shows_error_when_fetch_fails(client, db_session, monkeypatch):
+    async def failing_fetch(url: str) -> str:
+        raise RequestError("boom")
+
+    monkeypatch.setattr(fragrantica, "fetch_page", failing_fetch)
+
+    response = client.post("/collection", data={"url": URL})
+
+    assert response.status_code == 400
+    assert "Couldn" in response.text
+    assert collection_repo.list_all(db_session) == []
+
+
+def test_update_ownership_sets_price_and_volume(client, db_session, mock_fetch):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+
+    response = client.post(
+        f"/collection/{item.id}/ownership",
+        data={"price": "450.50", "volume_ml": "30"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    updated = collection_repo.get(db_session, item.id)
+    assert updated.price == Decimal("450.50")
+    assert updated.volume_ml == 30
+
+
+def test_update_ownership_accepts_comma_decimal_price(client, db_session, mock_fetch):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+
+    client.post(f"/collection/{item.id}/ownership", data={"price": "450,50", "volume_ml": ""})
+
+    updated = collection_repo.get(db_session, item.id)
+    assert updated.price == Decimal("450.50")
+
+
+def test_update_ownership_blank_clears_price_and_volume(client, db_session, mock_fetch):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+    client.post(f"/collection/{item.id}/ownership", data={"price": "450.50", "volume_ml": "30"})
+
+    client.post(f"/collection/{item.id}/ownership", data={"price": "", "volume_ml": ""})
+
+    updated = collection_repo.get(db_session, item.id)
+    assert updated.price is None
+    assert updated.volume_ml is None
+
+
+def test_update_ownership_ignores_invalid_input(client, db_session, mock_fetch):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+
+    client.post(f"/collection/{item.id}/ownership", data={"price": "not-a-number", "volume_ml": "not-a-number"})
+
+    updated = collection_repo.get(db_session, item.id)
+    assert updated.price is None
+    assert updated.volume_ml is None
+
+
+def test_update_ownership_ignores_non_positive_volume(client, db_session, mock_fetch):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+
+    client.post(f"/collection/{item.id}/ownership", data={"price": "", "volume_ml": "0"})
+
+    updated = collection_repo.get(db_session, item.id)
+    assert updated.volume_ml is None
+
+
+def test_update_ownership_404_for_missing_item(client):
+    response = client.post("/collection/999/ownership", data={"price": "10", "volume_ml": "30"})
+
+    assert response.status_code == 404
+
+
+def test_collection_page_shows_saved_volume(client, db_session, mock_fetch):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+    client.post(f"/collection/{item.id}/ownership", data={"price": "", "volume_ml": "50"})
+
+    response = client.get("/collection")
+
+    assert 'name="volume_ml" placeholder="Quantity" value="50"' in response.text
+
+
+def test_delete_removes_item(client, db_session, mock_fetch):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+
+    response = client.post(f"/collection/{item.id}/delete", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert collection_repo.list_all(db_session) == []
+
+
+def test_delete_404_for_missing_item(client):
+    response = client.post("/collection/999/delete")
+
+    assert response.status_code == 404

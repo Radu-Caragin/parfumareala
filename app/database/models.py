@@ -62,6 +62,12 @@ class MatchReviewStatus(str, enum.Enum):
     REJECTED = "rejected"
 
 
+class NoteTier(str, enum.Enum):
+    TOP = "top"
+    MIDDLE = "middle"
+    BASE = "base"
+
+
 class Perfume(Base):
     __tablename__ = "perfumes"
 
@@ -353,3 +359,75 @@ class AmbiguousMatch(Base):
 
     def __repr__(self) -> str:
         return f"<AmbiguousMatch perfume_id={self.perfume_id} store_id={self.store_id} status={self.status}>"
+
+
+class CollectionPerfume(Base):
+    """A perfume the user personally owns, added by hand via a
+    Fragrantica.com URL - entirely separate from Perfume (the abstract
+    monitored perfume used for store price-tracking): no variants, no
+    stores, no scraping. Just brand/name plus the accords/notes pulled in
+    once from that Fragrantica page, and an optional price the user
+    typed in themselves (there's no store to scrape a price from here).
+    """
+
+    __tablename__ = "collection_perfumes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    brand: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    fragrantica_url: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
+
+    price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="RON")
+    # How much of the bottle the user has, in ml - not tied to any
+    # particular "variant" size (there's no store product here), just a
+    # free-form quantity the user tracks themselves.
+    volume_ml: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    accords: Mapped[list["CollectionAccord"]] = relationship(
+        back_populates="perfume", cascade="all, delete-orphan", order_by="CollectionAccord.position"
+    )
+    notes: Mapped[list["CollectionNote"]] = relationship(
+        back_populates="perfume", cascade="all, delete-orphan", order_by="CollectionNote.position"
+    )
+
+    def __repr__(self) -> str:
+        return f"<CollectionPerfume {self.brand} {self.name}>"
+
+
+class CollectionAccord(Base):
+    __tablename__ = "collection_accords"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    collection_perfume_id: Mapped[int] = mapped_column(
+        ForeignKey("collection_perfumes.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Relative bar width/intensity as shown on Fragrantica's own accord
+    # bars (0-100), not a measured or standardized quantity.
+    strength: Mapped[int] = mapped_column(Integer, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    perfume: Mapped["CollectionPerfume"] = relationship(back_populates="accords")
+
+    def __repr__(self) -> str:
+        return f"<CollectionAccord {self.name} strength={self.strength}>"
+
+
+class CollectionNote(Base):
+    __tablename__ = "collection_notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    collection_perfume_id: Mapped[int] = mapped_column(
+        ForeignKey("collection_perfumes.id", ondelete="CASCADE"), nullable=False
+    )
+    tier: Mapped[NoteTier] = mapped_column(SAEnum(NoteTier), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    perfume: Mapped["CollectionPerfume"] = relationship(back_populates="notes")
+
+    def __repr__(self) -> str:
+        return f"<CollectionNote {self.tier.value} {self.name}>"
