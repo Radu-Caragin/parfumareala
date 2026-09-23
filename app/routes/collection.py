@@ -13,6 +13,7 @@ from app.database.models import CollectionPerfume
 from app.database.repositories import collection as collection_repo
 from app.scrapers.exceptions import RequestError
 from app.scrapers.fragrantica import InvalidFragranticaUrl
+from app.scrapers.fragrantica_wardrobe import InvalidFragranticaProfileUrl, WardrobeScrapingError
 from app.services import collection_family_service, collection_service
 from app.utils.templates import templates
 
@@ -29,7 +30,17 @@ def _get_item_or_404(db: Session, item_id: int) -> CollectionPerfume:
 @router.get("/collection", response_class=HTMLResponse)
 async def list_collection(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     items = collection_repo.list_all(db)
-    return templates.TemplateResponse(request, "collection/list.html", {"items": items, "error": None, "url": ""})
+    return templates.TemplateResponse(
+        request,
+        "collection/list.html",
+        {
+            "items": items,
+            "error": None,
+            "url": "",
+            "profile_url": "",
+            "import_result": None,
+        },
+    )
 
 
 @router.get("/collection/insights", response_class=HTMLResponse)
@@ -56,10 +67,44 @@ async def add_collection_item_route(request: Request, url: str = Form(""), db: S
         return templates.TemplateResponse(
             request,
             "collection/list.html",
-            {"items": items, "error": error, "url": url},
+            {
+                "items": items,
+                "error": error,
+                "url": url,
+                "profile_url": "",
+                "import_result": None,
+            },
             status_code=400,
         )
     return RedirectResponse(url="/collection", status_code=303)
+
+
+@router.post("/collection/import-fragrantica", response_class=HTMLResponse)
+async def import_fragrantica_wardrobe_route(
+    request: Request, profile_url: str = Form(""), db: Session = Depends(get_db)
+) -> HTMLResponse:
+    error = None
+    result = None
+    try:
+        result = await collection_service.import_from_fragrantica_profile(db, profile_url)
+    except InvalidFragranticaProfileUrl:
+        error = "Enter a Fragrantica profile URL like https://www.fragrantica.com/@username."
+    except WardrobeScrapingError:
+        error = "Couldn't read the public 'Perfumes I Have' shelf from that Fragrantica profile."
+
+    items = collection_repo.list_all(db)
+    return templates.TemplateResponse(
+        request,
+        "collection/list.html",
+        {
+            "items": items,
+            "error": error,
+            "url": "",
+            "profile_url": profile_url,
+            "import_result": result,
+        },
+        status_code=400 if error else 200,
+    )
 
 
 @router.post("/collection/{item_id}/ownership")

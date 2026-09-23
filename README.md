@@ -92,6 +92,13 @@ Then open http://127.0.0.1:8000 in your browser. The SQLite database and
 - **Enable/disable a store**: Stores page → toggle. Disabling only stops
   future checks for that store - it never deletes its price history or
   previously discovered products.
+- **Import a Fragrantica wardrobe**: Collection → "Import Fragrantica
+  wardrobe" → paste a public profile URL such as
+  `https://www.fragrantica.com/@username`. Only the "Perfumes I Have" shelf
+  is imported; "I Want" and "I Had" are ignored, and perfumes already in the
+  local collection are skipped. Google Chrome is used briefly to decode the
+  client-rendered wardrobe; each perfume page is then processed by the
+  existing Fragrantica collection scraper.
 
 ## Database
 

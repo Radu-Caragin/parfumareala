@@ -12,7 +12,10 @@ import pytest
 
 from app.database.repositories import collection as collection_repo
 from app.scrapers import fragrantica
+from app.scrapers import fragrantica_wardrobe
 from app.scrapers.exceptions import RequestError
+from app.services import collection_service
+from app.services.collection_service import CollectionImportResult
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "fragrantica"
 URL = "https://www.fragrantica.com/perfume/Initio-Parfums-Prives/Narcotic-Delight-89368.html"
@@ -36,6 +39,14 @@ def test_collection_page_shows_empty_state(client):
 
     assert response.status_code == 200
     assert "Your collection is empty" in response.text
+    assert '<strong>0</strong>\n        <span>perfumes</span>' in response.text
+
+
+def test_collection_page_shows_wardrobe_import_form(client):
+    response = client.get("/collection")
+
+    assert 'action="/collection/import-fragrantica"' in response.text
+    assert 'placeholder="https://www.fragrantica.com/@username"' in response.text
 
 
 def test_add_from_fragrantica_url_persists_perfume_accords_and_notes(client, db_session, mock_fetch):
@@ -62,6 +73,7 @@ def test_collection_page_lists_added_perfume_with_notes_and_accords(client, mock
     assert "Initio Parfums Prives Narcotic Delight" in response.text
     assert "sweet" in response.text
     assert "Cherry" in response.text
+    assert '<strong>1</strong>\n        <span>perfume</span>' in response.text
 
 
 def test_add_rejects_non_fragrantica_url(client, db_session):
@@ -93,6 +105,42 @@ def test_add_shows_error_when_fetch_fails(client, db_session, monkeypatch):
     assert response.status_code == 400
     assert "Couldn" in response.text
     assert collection_repo.list_all(db_session) == []
+
+
+def test_import_wardrobe_shows_summary(client, monkeypatch):
+    async def fake_import(db, profile_url):
+        assert profile_url == "https://www.fragrantica.com/@profunote"
+        return CollectionImportResult(
+            discovered=5,
+            added=[],
+            skipped_urls=["one", "two", "three"],
+            failed_urls=["four", "five"],
+        )
+
+    monkeypatch.setattr(collection_service, "import_from_fragrantica_profile", fake_import)
+
+    response = client.post(
+        "/collection/import-fragrantica",
+        data={"profile_url": "https://www.fragrantica.com/@profunote"},
+    )
+
+    assert response.status_code == 200
+    assert "Found 5 perfumes" in response.text
+    assert "0 added" in response.text
+    assert "3 already in collection" in response.text
+    assert "2 failed" in response.text
+
+
+def test_import_wardrobe_rejects_invalid_profile(client, monkeypatch):
+    async def fake_import(db, profile_url):
+        raise fragrantica_wardrobe.InvalidFragranticaProfileUrl(profile_url)
+
+    monkeypatch.setattr(collection_service, "import_from_fragrantica_profile", fake_import)
+
+    response = client.post("/collection/import-fragrantica", data={"profile_url": "https://example.com/me"})
+
+    assert response.status_code == 400
+    assert "Enter a Fragrantica profile URL" in response.text
 
 
 def test_update_ownership_sets_price_and_volume(client, db_session, mock_fetch):

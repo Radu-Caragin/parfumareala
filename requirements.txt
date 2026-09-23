@@ -31,6 +31,12 @@ certifi>=2024.2,<2027.0
 # other store scraper still uses plain httpx via BaseScraper.
 curl_cffi>=0.16,<1.0
 
+# Fragrantica member wardrobes are rendered client-side. Playwright is used
+# only to discover product URLs from the public "I Have" shelf; individual
+# perfume pages continue to use curl_cffi above. The importer prefers the
+# locally installed Google Chrome, so no browser download is normally needed.
+playwright>=1.55,<2.0
+
 # HTML parsing for scrapers (Fragranza.ro is server-rendered - no
 # JavaScript execution needed, so BeautifulSoup+lxml is sufficient)
 beautifulsoup4>=4.12,<5.0

@@ -3,7 +3,13 @@
 {% block title %}Collection - Perfume Price Tracker{% endblock %}
 
 {% block content %}
-<h1>My collection</h1>
+<div class="page-header collection-page-header">
+    <h1>My collection</h1>
+    <div class="collection-count" aria-label="Collection perfume count">
+        <strong>{{ items|length }}</strong>
+        <span>perfume{{ '' if items|length == 1 else 's' }}</span>
+    </div>
+</div>
 <p class="meta">
     Perfumes you own, added from a Fragrantica.com product page - notes and accords are pulled in automatically.
     <a href="/collection/insights">View collection insights &rarr;</a>
@@ -13,7 +19,28 @@
     <input type="url" name="url" placeholder="https://www.fragrantica.com/perfume/Brand/Name-12345.html" value="{{ url }}" required>
     <button type="submit" class="button">Add</button>
 </form>
+
+<section class="collection-import-section">
+    <h2>Import Fragrantica wardrobe</h2>
+    <p class="meta">
+        Imports only the public <strong>Perfumes I Have</strong> shelf. Existing collection links are skipped.
+        A large wardrobe can take a few minutes while notes and accords are loaded.
+    </p>
+    <form method="post" action="/collection/import-fragrantica" class="collection-add-form"
+          onsubmit="const button = this.querySelector('button'); button.disabled = true; button.textContent = 'Importing...';">
+        <input type="url" name="profile_url" placeholder="https://www.fragrantica.com/@username" value="{{ profile_url }}" required>
+        <button type="submit" class="button">Import wardrobe</button>
+    </form>
+</section>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if import_result %}
+<p class="collection-import-result">
+    Found {{ import_result.discovered }} perfumes:
+    {{ import_result.added|length }} added,
+    {{ import_result.skipped_urls|length }} already in collection,
+    {{ import_result.failed_urls|length }} failed.
+</p>
+{% endif %}
 
 {% if items %}
 <ul class="collection-list">
