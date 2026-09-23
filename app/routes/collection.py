@@ -19,6 +19,8 @@ from app.utils.templates import templates
 
 router = APIRouter()
 
+_SORT_OPTIONS = {"brand", "name"}
+
 
 def _get_item_or_404(db: Session, item_id: int) -> CollectionPerfume:
     item = collection_repo.get(db, item_id)
@@ -27,9 +29,14 @@ def _get_item_or_404(db: Session, item_id: int) -> CollectionPerfume:
     return item
 
 
+def _clean_sort(sort_by: str) -> str:
+    return sort_by if sort_by in _SORT_OPTIONS else "brand"
+
+
 @router.get("/collection", response_class=HTMLResponse)
-async def list_collection(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    items = collection_repo.list_all(db)
+async def list_collection(request: Request, sort: str = "brand", db: Session = Depends(get_db)) -> HTMLResponse:
+    sort = _clean_sort(sort)
+    items = collection_repo.list_all(db, sort_by=sort)
     return templates.TemplateResponse(
         request,
         "collection/list.html",
@@ -39,6 +46,7 @@ async def list_collection(request: Request, db: Session = Depends(get_db)) -> HT
             "url": "",
             "profile_url": "",
             "import_result": None,
+            "sort": sort,
         },
     )
 
@@ -51,7 +59,10 @@ async def collection_insights(request: Request, db: Session = Depends(get_db)) -
 
 
 @router.post("/collection")
-async def add_collection_item_route(request: Request, url: str = Form(""), db: Session = Depends(get_db)):
+async def add_collection_item_route(
+    request: Request, url: str = Form(""), sort: str = Form("brand"), db: Session = Depends(get_db)
+):
+    sort = _clean_sort(sort)
     error = None
     try:
         await collection_service.add_from_fragrantica_url(db, url)
@@ -63,7 +74,7 @@ async def add_collection_item_route(request: Request, url: str = Form(""), db: S
         error = "Couldn't fetch that page from Fragrantica - try again in a moment."
 
     if error:
-        items = collection_repo.list_all(db)
+        items = collection_repo.list_all(db, sort_by=sort)
         return templates.TemplateResponse(
             request,
             "collection/list.html",
@@ -73,16 +84,18 @@ async def add_collection_item_route(request: Request, url: str = Form(""), db: S
                 "url": url,
                 "profile_url": "",
                 "import_result": None,
+                "sort": sort,
             },
             status_code=400,
         )
-    return RedirectResponse(url="/collection", status_code=303)
+    return RedirectResponse(url=f"/collection?sort={sort}", status_code=303)
 
 
 @router.post("/collection/import-fragrantica", response_class=HTMLResponse)
 async def import_fragrantica_wardrobe_route(
-    request: Request, profile_url: str = Form(""), db: Session = Depends(get_db)
+    request: Request, profile_url: str = Form(""), sort: str = Form("brand"), db: Session = Depends(get_db)
 ) -> HTMLResponse:
+    sort = _clean_sort(sort)
     error = None
     result = None
     try:
@@ -92,7 +105,7 @@ async def import_fragrantica_wardrobe_route(
     except WardrobeScrapingError:
         error = "Couldn't read the public 'Perfumes I Have' shelf from that Fragrantica profile."
 
-    items = collection_repo.list_all(db)
+    items = collection_repo.list_all(db, sort_by=sort)
     return templates.TemplateResponse(
         request,
         "collection/list.html",
@@ -102,6 +115,7 @@ async def import_fragrantica_wardrobe_route(
             "url": "",
             "profile_url": profile_url,
             "import_result": result,
+            "sort": sort,
         },
         status_code=400 if error else 200,
     )
@@ -109,8 +123,13 @@ async def import_fragrantica_wardrobe_route(
 
 @router.post("/collection/{item_id}/ownership")
 async def update_collection_ownership_route(
-    item_id: int, price: str = Form(""), volume_ml: str = Form(""), db: Session = Depends(get_db)
+    item_id: int,
+    price: str = Form(""),
+    volume_ml: str = Form(""),
+    sort: str = Form("brand"),
+    db: Session = Depends(get_db),
 ):
+    sort = _clean_sort(sort)
     item = _get_item_or_404(db, item_id)
 
     price_value = price.strip()
@@ -136,11 +155,12 @@ async def update_collection_ownership_route(
             parsed_volume = None
 
     collection_repo.update_ownership(db, item, price=parsed_price, currency=item.currency, volume_ml=parsed_volume)
-    return RedirectResponse(url="/collection", status_code=303)
+    return RedirectResponse(url=f"/collection?sort={sort}", status_code=303)
 
 
 @router.post("/collection/{item_id}/delete")
-async def delete_collection_item_route(item_id: int, db: Session = Depends(get_db)):
+async def delete_collection_item_route(item_id: int, sort: str = Form("brand"), db: Session = Depends(get_db)):
+    sort = _clean_sort(sort)
     item = _get_item_or_404(db, item_id)
     collection_repo.delete(db, item)
-    return RedirectResponse(url="/collection", status_code=303)
+    return RedirectResponse(url=f"/collection?sort={sort}", status_code=303)

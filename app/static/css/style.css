@@ -1411,3 +1411,8 @@ h3 {
 .family-top-perfumes {
     margin: 0.5rem 0 0;
 }
+
+.collection-sort a.active {
+    font-weight: 600;
+    color: var(--color-text);
+}

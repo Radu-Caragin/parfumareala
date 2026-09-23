@@ -15,8 +15,16 @@
     <a href="/collection/insights">View collection insights &rarr;</a>
 </p>
 
+<p class="meta collection-sort">
+    Sort by:
+    <a href="/collection?sort=brand" class="{{ 'active' if sort == 'brand' else '' }}">Brand</a>
+    &middot;
+    <a href="/collection?sort=name" class="{{ 'active' if sort == 'name' else '' }}">Perfume name</a>
+</p>
+
 <form method="post" action="/collection" class="collection-add-form">
     <input type="url" name="url" placeholder="https://www.fragrantica.com/perfume/Brand/Name-12345.html" value="{{ url }}" required>
+    <input type="hidden" name="sort" value="{{ sort }}">
     <button type="submit" class="button">Add</button>
 </form>
 
@@ -29,6 +37,7 @@
     <form method="post" action="/collection/import-fragrantica" class="collection-add-form"
           onsubmit="const button = this.querySelector('button'); button.disabled = true; button.textContent = 'Importing...';">
         <input type="url" name="profile_url" placeholder="https://www.fragrantica.com/@username" value="{{ profile_url }}" required>
+        <input type="hidden" name="sort" value="{{ sort }}">
         <button type="submit" class="button">Import wardrobe</button>
     </form>
 </section>
@@ -56,6 +65,7 @@
                 <span class="meta">{{ item.currency }}</span>
                 <input type="number" step="1" min="1" name="volume_ml" placeholder="Quantity" value="{{ item.volume_ml if item.volume_ml is not none else '' }}">
                 <span class="meta">ml</span>
+                <input type="hidden" name="sort" value="{{ sort }}">
                 <button type="submit" class="button secondary small">Save</button>
             </form>
             <form
@@ -64,6 +74,7 @@
                 onsubmit="return confirm('Remove {{ item.brand }} {{ item.name }} from your collection?');"
                 style="display:inline;"
             >
+                <input type="hidden" name="sort" value="{{ sort }}">
                 <button type="submit" class="button secondary small">Remove</button>
             </form>
         </div>
