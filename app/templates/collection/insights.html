@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Collection insights - Perfume Price Tracker{% endblock %}
+
+{% block content %}
+<p><a href="/collection">&larr; Back to collection</a></p>
+<h1>Collection insights</h1>
+<p class="meta">
+    What kind of perfumes make up your collection, grouped into olfactory subfamilies based on their accords -
+    weighted by how strong each accord actually is, not just whether it's present. Color groups related
+    subfamilies together (e.g. Citrus/Green/Aquatic/Aromatic are all Fresh).
+</p>
+
+{% if families %}
+<ul class="family-list">
+    {% for family in families %}
+    <li class="family-row">
+        <div class="family-row-header">
+            <span class="family-name">{{ family.name }} <span class="family-group">({{ family.group }})</span></span>
+            <span class="family-percentage">{{ family.percentage }}%</span>
+        </div>
+        <div class="family-bar-track">
+            <div class="family-bar-fill" style="width: {{ family.percentage }}%; background: {{ family.color }};"></div>
+        </div>
+        {% if family.top_perfumes %}
+        <p class="meta family-top-perfumes">Mostly from: {{ family.top_perfumes|join(", ") }}</p>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="empty-state">Add a few perfumes with accords to your collection to see a breakdown here.</p>
+{% endif %}
+{% endblock %}

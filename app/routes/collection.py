@@ -13,7 +13,7 @@ from app.database.models import CollectionPerfume
 from app.database.repositories import collection as collection_repo
 from app.scrapers.exceptions import RequestError
 from app.scrapers.fragrantica import InvalidFragranticaUrl
-from app.services import collection_service
+from app.services import collection_family_service, collection_service
 from app.utils.templates import templates
 
 router = APIRouter()
@@ -30,6 +30,13 @@ def _get_item_or_404(db: Session, item_id: int) -> CollectionPerfume:
 async def list_collection(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     items = collection_repo.list_all(db)
     return templates.TemplateResponse(request, "collection/list.html", {"items": items, "error": None, "url": ""})
+
+
+@router.get("/collection/insights", response_class=HTMLResponse)
+async def collection_insights(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    items = collection_repo.list_all(db)
+    families = collection_family_service.build_family_breakdown(items)
+    return templates.TemplateResponse(request, "collection/insights.html", {"families": families})
 
 
 @router.post("/collection")

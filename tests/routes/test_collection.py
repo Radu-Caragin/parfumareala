@@ -184,3 +184,28 @@ def test_delete_404_for_missing_item(client):
     response = client.post("/collection/999/delete")
 
     assert response.status_code == 404
+
+
+def test_insights_shows_empty_state_with_no_accords(client, db_session, mock_fetch):
+    response = client.get("/collection/insights")
+
+    assert response.status_code == 200
+    assert "Add a few perfumes with accords" in response.text
+
+
+def test_insights_shows_family_breakdown(client, db_session):
+    collection_repo.create(
+        db_session, brand="A", name="One", fragrantica_url="https://x/1",
+        accords=[("woody", 80), ("citrus", 20)], notes=[],
+    )
+
+    response = client.get("/collection/insights")
+
+    assert response.status_code == 200
+    assert "Add a few perfumes with accords" not in response.text
+    assert "Woods" in response.text
+    assert "Citrus" in response.text
+    assert "(Woody)" in response.text
+    assert "(Fresh)" in response.text
+    assert "80.0%" in response.text
+    assert "A One" in response.text

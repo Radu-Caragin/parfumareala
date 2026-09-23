@@ -4,7 +4,10 @@
 
 {% block content %}
 <h1>My collection</h1>
-<p class="meta">Perfumes you own, added from a Fragrantica.com product page - notes and accords are pulled in automatically.</p>
+<p class="meta">
+    Perfumes you own, added from a Fragrantica.com product page - notes and accords are pulled in automatically.
+    <a href="/collection/insights">View collection insights &rarr;</a>
+</p>
 
 <form method="post" action="/collection" class="collection-add-form">
     <input type="url" name="url" placeholder="https://www.fragrantica.com/perfume/Brand/Name-12345.html" value="{{ url }}" required>
