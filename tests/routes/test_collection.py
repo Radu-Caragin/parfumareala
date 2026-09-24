@@ -15,7 +15,7 @@ from app.scrapers import fragrantica
 from app.scrapers import fragrantica_wardrobe
 from app.scrapers.exceptions import RequestError
 from app.services import collection_service
-from app.services.collection_service import CollectionImportResult
+from app.services.collection_service import CollectionImportResult, CollectionSimilarRefreshResult
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "fragrantica"
 URL = "https://www.fragrantica.com/perfume/Initio-Parfums-Prives/Narcotic-Delight-89368.html"
@@ -49,6 +49,33 @@ def test_collection_page_shows_wardrobe_import_form(client):
     assert 'placeholder="https://www.fragrantica.com/@username"' in response.text
 
 
+def test_collection_page_shows_refresh_all_button_when_collection_has_items(client, mock_fetch):
+    client.post("/collection", data={"url": URL})
+
+    response = client.get("/collection")
+
+    assert 'action="/collection/refresh-similar"' in response.text
+    assert "Refresh all similar perfumes" in response.text
+
+
+def test_refresh_all_similar_perfumes_shows_summary(client, monkeypatch):
+    async def fake_refresh_all(db):
+        return CollectionSimilarRefreshResult(
+            total=5,
+            updated=[],
+            failed_urls=["one", "two"],
+        )
+
+    monkeypatch.setattr(collection_service, "refresh_all_similar_perfumes", fake_refresh_all)
+
+    response = client.post("/collection/refresh-similar", data={"sort": "name"})
+
+    assert response.status_code == 200
+    assert "Similar perfumes refreshed for 0 of" in response.text
+    assert "5 collection perfumes" in response.text
+    assert "2 failed" in response.text
+
+
 def test_add_from_fragrantica_url_persists_perfume_accords_and_notes(client, db_session, mock_fetch):
     response = client.post("/collection", data={"url": URL}, follow_redirects=False)
 
@@ -74,6 +101,113 @@ def test_collection_page_lists_added_perfume_with_notes_and_accords(client, mock
     assert "sweet" in response.text
     assert "Cherry" in response.text
     assert '<strong>1</strong>\n        <span>perfume</span>' in response.text
+
+
+def test_add_persists_and_displays_fragrantica_similar_perfumes(client, db_session, mock_fetch, monkeypatch):
+    async def fake_decode(url: str, html: str):
+        assert url == URL
+        return [
+            fragrantica.FragranticaSimilarPerfume(
+                brand="Parfums de Marly",
+                name="Althaïr",
+                url="https://www.fragrantica.com/perfume/Parfums-de-Marly/Althair-84109.html",
+            ),
+            fragrantica.FragranticaSimilarPerfume(
+                brand="Lattafa Perfumes",
+                name="Art Of Nature II",
+                url="https://www.fragrantica.com/perfume/Lattafa-Perfumes/Art-Of-Nature-II-98242.html",
+            ),
+        ]
+
+    monkeypatch.setattr(fragrantica, "decode_similar_perfumes", fake_decode)
+
+    response = client.post("/collection", data={"url": URL}, follow_redirects=False)
+
+    assert response.status_code == 303
+    item = collection_repo.list_all(db_session)[0]
+    assert [(similar.brand, similar.name) for similar in item.similar_perfumes] == [
+        ("Parfums de Marly", "Althaïr"),
+        ("Lattafa Perfumes", "Art Of Nature II"),
+    ]
+
+    page = client.get("/collection")
+    assert "This perfume reminds me of" in page.text
+    assert "Parfums de Marly Althaïr" in page.text
+    assert "Lattafa Perfumes Art Of Nature II" in page.text
+
+
+def test_refresh_similar_perfumes_updates_an_existing_collection_item(
+    client, db_session, mock_fetch, monkeypatch
+):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+
+    async def fake_decode(url: str, html: str):
+        return [
+            fragrantica.FragranticaSimilarPerfume(
+                brand="Khadlaj Perfumes",
+                name="Island Vanilla Dunes",
+                url="https://www.fragrantica.com/perfume/Khadlaj-Perfumes/Island-Vanilla-Dunes-106802.html",
+            )
+        ]
+
+    monkeypatch.setattr(fragrantica, "decode_similar_perfumes", fake_decode)
+
+    response = client.post(
+        f"/collection/{item.id}/refresh-similar",
+        data={"sort": "name"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/collection?sort=name"
+    refreshed = collection_repo.list_all(db_session)[0]
+    assert [(similar.brand, similar.name) for similar in refreshed.similar_perfumes] == [
+        ("Khadlaj Perfumes", "Island Vanilla Dunes")
+    ]
+
+
+def test_refresh_similar_perfumes_can_replace_an_existing_url_twice(
+    client, db_session, mock_fetch, monkeypatch
+):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+
+    async def fake_decode(url: str, html: str):
+        return [
+            fragrantica.FragranticaSimilarPerfume(
+                brand="Parfums de Marly",
+                name="Althaïr",
+                url="https://www.fragrantica.com/perfume/Parfums-de-Marly/Althair-84109.html",
+            )
+        ]
+
+    monkeypatch.setattr(fragrantica, "decode_similar_perfumes", fake_decode)
+
+    first = client.post(f"/collection/{item.id}/refresh-similar", follow_redirects=False)
+    second = client.post(f"/collection/{item.id}/refresh-similar", follow_redirects=False)
+
+    assert first.status_code == 303
+    assert second.status_code == 303
+    refreshed = collection_repo.list_all(db_session)[0]
+    assert [(similar.brand, similar.name) for similar in refreshed.similar_perfumes] == [
+        ("Parfums de Marly", "Althaïr")
+    ]
+
+
+def test_refresh_similar_perfumes_reports_fragrantica_failure(client, db_session, mock_fetch, monkeypatch):
+    client.post("/collection", data={"url": URL})
+    item = collection_repo.list_all(db_session)[0]
+
+    async def failing_fetch(url: str):
+        raise RequestError("temporary failure")
+
+    monkeypatch.setattr(fragrantica, "fetch_page", failing_fetch)
+
+    response = client.post(f"/collection/{item.id}/refresh-similar")
+
+    assert response.status_code == 502
+    assert "Couldn&#39;t refresh similar perfumes" in response.text or "Couldn't refresh similar perfumes" in response.text
 
 
 def test_add_rejects_non_fragrantica_url(client, db_session):

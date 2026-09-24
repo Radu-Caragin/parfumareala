@@ -7,7 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from app.scrapers.fragrantica import InvalidFragranticaUrl, parse_page, parse_url
+from app.scrapers.fragrantica import (
+    InvalidFragranticaUrl,
+    extract_sealed_similar_payload,
+    parse_page,
+    parse_similar_payload,
+    parse_url,
+)
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "fragrantica"
 URL = "https://www.fragrantica.com/perfume/Initio-Parfums-Prives/Narcotic-Delight-89368.html"
@@ -83,3 +89,57 @@ def test_parse_page_returns_empty_lists_when_sections_missing():
 
     assert perfume.accords == []
     assert perfume.notes == []
+
+
+def test_extract_sealed_similar_payload_reads_only_the_json_assignment():
+    html = '<script>let similar_perfumes = {"ct":"cipher","iv":"iv","s":"salt"};</script>'
+
+    assert extract_sealed_similar_payload(html) == {"ct": "cipher", "iv": "iv", "s": "salt"}
+
+
+def test_extract_sealed_similar_payload_returns_none_for_invalid_or_missing_data():
+    assert extract_sealed_similar_payload("<html></html>") is None
+    assert extract_sealed_similar_payload("<script>let similar_perfumes = nope;</script>") is None
+
+
+def test_parse_similar_payload_preserves_fragrantica_order_and_deduplicates_urls():
+    payload = {
+        "similar_perfumes": [
+            {
+                "perfume": {
+                    "dizajner": "Parfums de Marly",
+                    "naslov": "Althaïr",
+                    "perfume_url": "/perfume/Parfums-de-Marly/Althair-84109.html?source=similar",
+                }
+            },
+            {
+                "perfume": {
+                    "dizajner": "French Avenue",
+                    "naslov": "Liquid Brun Limited Edition",
+                    "perfume_url": "https://www.fragrantica.com/perfume/French-Avenue/Liquid-Brun-Limited-Edition-123526.html",
+                }
+            },
+            {
+                "perfume": {
+                    "dizajner": "Duplicate",
+                    "naslov": "Duplicate",
+                    "perfume_url": "/perfume/Parfums-de-Marly/Althair-84109.html",
+                }
+            },
+            {
+                "perfume": {
+                    "dizajner": "Untrusted",
+                    "naslov": "External URL",
+                    "perfume_url": "https://example.com/perfume/Bad/Bad-1.html",
+                }
+            },
+        ]
+    }
+
+    similar = parse_similar_payload(payload)
+
+    assert [(item.brand, item.name) for item in similar] == [
+        ("Parfums de Marly", "Althaïr"),
+        ("French Avenue", "Liquid Brun Limited Edition"),
+    ]
+    assert similar[0].url == "https://www.fragrantica.com/perfume/Parfums-de-Marly/Althair-84109.html"

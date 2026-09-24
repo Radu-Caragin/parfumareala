@@ -392,6 +392,11 @@ class CollectionPerfume(Base):
     notes: Mapped[list["CollectionNote"]] = relationship(
         back_populates="perfume", cascade="all, delete-orphan", order_by="CollectionNote.position"
     )
+    similar_perfumes: Mapped[list["CollectionSimilarPerfume"]] = relationship(
+        back_populates="perfume",
+        cascade="all, delete-orphan",
+        order_by="CollectionSimilarPerfume.position",
+    )
 
     def __repr__(self) -> str:
         return f"<CollectionPerfume {self.brand} {self.name}>"
@@ -431,3 +436,29 @@ class CollectionNote(Base):
 
     def __repr__(self) -> str:
         return f"<CollectionNote {self.tier.value} {self.name}>"
+
+
+class CollectionSimilarPerfume(Base):
+    """A Fragrantica community similarity relation captured at import time."""
+
+    __tablename__ = "collection_similar_perfumes"
+    __table_args__ = (
+        UniqueConstraint("collection_perfume_id", "url", name="uq_collection_similar_url"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    collection_perfume_id: Mapped[int] = mapped_column(
+        ForeignKey("collection_perfumes.id", ondelete="CASCADE"), nullable=False
+    )
+    brand: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Keep the physical column name ``url`` for compatibility with the
+    # first local prototype of this table; the ORM attribute is explicit
+    # about which site the URL belongs to.
+    fragrantica_url: Mapped[str] = mapped_column("url", String(500), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    perfume: Mapped["CollectionPerfume"] = relationship(back_populates="similar_perfumes")
+
+    def __repr__(self) -> str:
+        return f"<CollectionSimilarPerfume {self.brand} {self.name}>"

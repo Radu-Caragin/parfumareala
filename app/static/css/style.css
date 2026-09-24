@@ -1319,6 +1319,19 @@ h3 {
     margin-top: 0;
 }
 
+.collection-similar-list {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+
+.collection-similar-list li + li {
+    margin-top: 0.25rem;
+}
+
+.collection-similar-refresh {
+    margin-top: 0.75rem;
+}
+
 .accord-list {
     list-style: none;
     padding: 0;

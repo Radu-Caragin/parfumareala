@@ -46,6 +46,7 @@ async def list_collection(request: Request, sort: str = "brand", db: Session = D
             "url": "",
             "profile_url": "",
             "import_result": None,
+            "similar_refresh_result": None,
             "sort": sort,
         },
     )
@@ -84,6 +85,7 @@ async def add_collection_item_route(
                 "url": url,
                 "profile_url": "",
                 "import_result": None,
+                "similar_refresh_result": None,
                 "sort": sort,
             },
             status_code=400,
@@ -115,9 +117,34 @@ async def import_fragrantica_wardrobe_route(
             "url": "",
             "profile_url": profile_url,
             "import_result": result,
+            "similar_refresh_result": None,
             "sort": sort,
         },
         status_code=400 if error else 200,
+    )
+
+
+@router.post("/collection/refresh-similar", response_class=HTMLResponse)
+async def refresh_all_collection_similar_route(
+    request: Request,
+    sort: str = Form("brand"),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    sort = _clean_sort(sort)
+    result = await collection_service.refresh_all_similar_perfumes(db)
+    items = collection_repo.list_all(db, sort_by=sort)
+    return templates.TemplateResponse(
+        request,
+        "collection/list.html",
+        {
+            "items": items,
+            "error": None,
+            "url": "",
+            "profile_url": "",
+            "import_result": None,
+            "similar_refresh_result": result,
+            "sort": sort,
+        },
     )
 
 
@@ -163,4 +190,34 @@ async def delete_collection_item_route(item_id: int, sort: str = Form("brand"), 
     sort = _clean_sort(sort)
     item = _get_item_or_404(db, item_id)
     collection_repo.delete(db, item)
+    return RedirectResponse(url=f"/collection?sort={sort}", status_code=303)
+
+
+@router.post("/collection/{item_id}/refresh-similar")
+async def refresh_collection_similar_route(
+    request: Request,
+    item_id: int,
+    sort: str = Form("brand"),
+    db: Session = Depends(get_db),
+):
+    sort = _clean_sort(sort)
+    item = _get_item_or_404(db, item_id)
+    try:
+        await collection_service.refresh_similar_perfumes(db, item)
+    except RequestError:
+        items = collection_repo.list_all(db, sort_by=sort)
+        return templates.TemplateResponse(
+            request,
+            "collection/list.html",
+            {
+                "items": items,
+                "error": "Couldn't refresh similar perfumes from Fragrantica - try again in a moment.",
+                "url": "",
+                "profile_url": "",
+                "import_result": None,
+                "similar_refresh_result": None,
+                "sort": sort,
+            },
+            status_code=502,
+        )
     return RedirectResponse(url=f"/collection?sort={sort}", status_code=303)

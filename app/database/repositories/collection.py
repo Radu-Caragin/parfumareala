@@ -4,10 +4,17 @@ independent of the store price-tracking Perfume entity."""
 
 from decimal import Decimal
 
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.database.models import CollectionAccord, CollectionNote, CollectionPerfume, NoteTier
+from app.database.models import (
+    CollectionAccord,
+    CollectionNote,
+    CollectionPerfume,
+    CollectionSimilarPerfume,
+    NoteTier,
+)
 
 
 def get(db: Session, collection_perfume_id: int) -> CollectionPerfume | None:
@@ -31,7 +38,11 @@ def list_all(db: Session, *, sort_by: str = "brand") -> list[CollectionPerfume]:
     return list(
         db.scalars(
             select(CollectionPerfume)
-            .options(selectinload(CollectionPerfume.accords), selectinload(CollectionPerfume.notes))
+            .options(
+                selectinload(CollectionPerfume.accords),
+                selectinload(CollectionPerfume.notes),
+                selectinload(CollectionPerfume.similar_perfumes),
+            )
             .order_by(*order)
         )
     )
@@ -45,6 +56,7 @@ def create(
     fragrantica_url: str,
     accords: list[tuple[str, int]],
     notes: list[tuple[str, str]],
+    similar_perfumes: list[tuple[str, str, str]] | None = None,
 ) -> CollectionPerfume:
     perfume = CollectionPerfume(brand=brand, name=name, fragrantica_url=fragrantica_url)
     perfume.accords = [
@@ -54,6 +66,15 @@ def create(
     perfume.notes = [
         CollectionNote(tier=NoteTier(tier), name=note_name, position=position)
         for position, (tier, note_name) in enumerate(notes)
+    ]
+    perfume.similar_perfumes = [
+        CollectionSimilarPerfume(
+            brand=similar_brand,
+            name=similar_name,
+            fragrantica_url=similar_url,
+            position=position,
+        )
+        for position, (similar_brand, similar_name, similar_url) in enumerate(similar_perfumes or [])
     ]
     db.add(perfume)
     db.commit()
@@ -73,6 +94,38 @@ def update_ownership(
     perfume.currency = currency
     perfume.volume_ml = volume_ml
     db.commit()
+    db.refresh(perfume)
+    return perfume
+
+
+def replace_similar_perfumes(
+    db: Session,
+    perfume: CollectionPerfume,
+    similar_perfumes: list[tuple[str, str, str]],
+) -> CollectionPerfume:
+    # A relationship assignment lets SQLAlchemy choose the unit-of-work
+    # ordering. With the unique (perfume, URL) constraint it may INSERT the
+    # replacement rows before DELETEing the old ones, which makes an
+    # unchanged URL fail on refresh. Remove and flush first so the two phases
+    # are unambiguous.
+    db.execute(
+        sa_delete(CollectionSimilarPerfume).where(
+            CollectionSimilarPerfume.collection_perfume_id == perfume.id
+        )
+    )
+    db.flush()
+    db.add_all([
+        CollectionSimilarPerfume(
+            collection_perfume_id=perfume.id,
+            brand=brand,
+            name=name,
+            fragrantica_url=url,
+            position=position,
+        )
+        for position, (brand, name, url) in enumerate(similar_perfumes)
+    ])
+    db.commit()
+    db.expire(perfume, ["similar_perfumes"])
     db.refresh(perfume)
     return perfume
 
