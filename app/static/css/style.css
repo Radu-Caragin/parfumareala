@@ -1167,21 +1167,36 @@ h3 {
     box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
+.collection-import-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin: 1rem 0;
+}
+
 .collection-import-section {
-    margin: 1.25rem 0;
-    padding: 1rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    background: var(--color-surface);
+    padding: 0;
 }
 
 .collection-import-section h2 {
     margin-top: 0;
-    font-size: 1.05rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.95rem;
 }
 
 .collection-import-section .collection-add-form {
     margin-bottom: 0;
+}
+
+.collection-import-section .collection-add-form input[type="url"] {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.85rem;
+}
+
+.collection-import-section .button {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.82rem;
+    box-shadow: none;
 }
 
 .collection-import-result {

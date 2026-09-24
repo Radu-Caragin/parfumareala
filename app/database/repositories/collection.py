@@ -25,11 +25,11 @@ def get_by_url(db: Session, fragrantica_url: str) -> CollectionPerfume | None:
     return db.scalar(select(CollectionPerfume).where(CollectionPerfume.fragrantica_url == fragrantica_url))
 
 
-def list_all(db: Session, *, sort_by: str = "brand") -> list[CollectionPerfume]:
-    """sort_by="brand" (default) orders by brand then name, so perfumes
-    from the same brand stay grouped together. sort_by="name" orders by
-    the perfume name alone, ignoring brand entirely - e.g. "Erba Gold"
-    sorts under E, not under Xerjoff."""
+def list_all(db: Session, *, sort_by: str = "name") -> list[CollectionPerfume]:
+    """sort_by="name" (default) orders by the perfume name alone, ignoring
+    brand entirely - e.g. "Erba Gold" sorts under E, not under Xerjoff.
+    sort_by="brand" orders by brand then name instead, so perfumes from
+    the same brand stay grouped together."""
     order = (
         (CollectionPerfume.name,)
         if sort_by == "name"

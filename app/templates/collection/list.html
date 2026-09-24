@@ -28,6 +28,7 @@
     <button type="submit" class="button">Add</button>
 </form>
 
+<div class="collection-import-row">
 <section class="collection-import-section">
     <h2>Import Fragrantica wardrobe</h2>
     <p class="meta">
@@ -55,6 +56,7 @@
     </form>
 </section>
 {% endif %}
+</div>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 {% if import_result %}
 <p class="collection-import-result">

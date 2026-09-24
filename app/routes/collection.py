@@ -30,11 +30,11 @@ def _get_item_or_404(db: Session, item_id: int) -> CollectionPerfume:
 
 
 def _clean_sort(sort_by: str) -> str:
-    return sort_by if sort_by in _SORT_OPTIONS else "brand"
+    return sort_by if sort_by in _SORT_OPTIONS else "name"
 
 
 @router.get("/collection", response_class=HTMLResponse)
-async def list_collection(request: Request, sort: str = "brand", db: Session = Depends(get_db)) -> HTMLResponse:
+async def list_collection(request: Request, sort: str = "name", db: Session = Depends(get_db)) -> HTMLResponse:
     sort = _clean_sort(sort)
     items = collection_repo.list_all(db, sort_by=sort)
     return templates.TemplateResponse(
@@ -61,7 +61,7 @@ async def collection_insights(request: Request, db: Session = Depends(get_db)) -
 
 @router.post("/collection")
 async def add_collection_item_route(
-    request: Request, url: str = Form(""), sort: str = Form("brand"), db: Session = Depends(get_db)
+    request: Request, url: str = Form(""), sort: str = Form("name"), db: Session = Depends(get_db)
 ):
     sort = _clean_sort(sort)
     error = None
@@ -95,7 +95,7 @@ async def add_collection_item_route(
 
 @router.post("/collection/import-fragrantica", response_class=HTMLResponse)
 async def import_fragrantica_wardrobe_route(
-    request: Request, profile_url: str = Form(""), sort: str = Form("brand"), db: Session = Depends(get_db)
+    request: Request, profile_url: str = Form(""), sort: str = Form("name"), db: Session = Depends(get_db)
 ) -> HTMLResponse:
     sort = _clean_sort(sort)
     error = None
@@ -127,7 +127,7 @@ async def import_fragrantica_wardrobe_route(
 @router.post("/collection/refresh-similar", response_class=HTMLResponse)
 async def refresh_all_collection_similar_route(
     request: Request,
-    sort: str = Form("brand"),
+    sort: str = Form("name"),
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
     sort = _clean_sort(sort)
@@ -153,7 +153,7 @@ async def update_collection_ownership_route(
     item_id: int,
     price: str = Form(""),
     volume_ml: str = Form(""),
-    sort: str = Form("brand"),
+    sort: str = Form("name"),
     db: Session = Depends(get_db),
 ):
     sort = _clean_sort(sort)
@@ -186,7 +186,7 @@ async def update_collection_ownership_route(
 
 
 @router.post("/collection/{item_id}/delete")
-async def delete_collection_item_route(item_id: int, sort: str = Form("brand"), db: Session = Depends(get_db)):
+async def delete_collection_item_route(item_id: int, sort: str = Form("name"), db: Session = Depends(get_db)):
     sort = _clean_sort(sort)
     item = _get_item_or_404(db, item_id)
     collection_repo.delete(db, item)
@@ -197,7 +197,7 @@ async def delete_collection_item_route(item_id: int, sort: str = Form("brand"), 
 async def refresh_collection_similar_route(
     request: Request,
     item_id: int,
-    sort: str = Form("brand"),
+    sort: str = Form("name"),
     db: Session = Depends(get_db),
 ):
     sort = _clean_sort(sort)

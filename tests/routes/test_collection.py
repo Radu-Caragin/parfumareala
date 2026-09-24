@@ -80,7 +80,7 @@ def test_add_from_fragrantica_url_persists_perfume_accords_and_notes(client, db_
     response = client.post("/collection", data={"url": URL}, follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/collection?sort=brand"
+    assert response.headers["location"] == "/collection?sort=name"
 
     items = collection_repo.list_all(db_session)
     assert len(items) == 1
@@ -368,30 +368,31 @@ def test_delete_404_for_missing_item(client):
     assert response.status_code == 404
 
 
-def test_default_sort_orders_by_brand(client, db_session):
+def test_default_sort_orders_by_perfume_name(client, db_session):
     collection_repo.create(db_session, brand="Xerjoff", name="Alexandria II", fragrantica_url="https://x/1", accords=[], notes=[])
     collection_repo.create(db_session, brand="Dior", name="Zephyr", fragrantica_url="https://x/2", accords=[], notes=[])
 
     response = client.get("/collection")
 
-    assert response.text.index("Dior Zephyr") < response.text.index("Xerjoff Alexandria II")
+    assert response.text.index("Xerjoff Alexandria II") < response.text.index("Dior Zephyr")
+    assert 'href="/collection?sort=name" class="active"' in response.text
 
 
-def test_sort_by_name_ignores_brand(client, db_session):
+def test_sort_by_brand_groups_perfumes_by_brand(client, db_session):
     collection_repo.create(db_session, brand="Xerjoff", name="Alexandria II", fragrantica_url="https://x/1", accords=[], notes=[])
     collection_repo.create(db_session, brand="Dior", name="Zephyr", fragrantica_url="https://x/2", accords=[], notes=[])
 
-    response = client.get("/collection?sort=name")
+    response = client.get("/collection?sort=brand")
 
-    assert response.text.index("Xerjoff Alexandria II") < response.text.index("Dior Zephyr")
+    assert response.text.index("Dior Zephyr") < response.text.index("Xerjoff Alexandria II")
     assert 'class="active"' in response.text
 
 
-def test_invalid_sort_falls_back_to_brand(client, db_session):
+def test_invalid_sort_falls_back_to_name(client, db_session):
     response = client.get("/collection?sort=nonsense")
 
     assert response.status_code == 200
-    assert 'href="/collection?sort=brand" class="active"' in response.text
+    assert 'href="/collection?sort=name" class="active"' in response.text
 
 
 def test_insights_shows_empty_state_with_no_accords(client, db_session, mock_fetch):
