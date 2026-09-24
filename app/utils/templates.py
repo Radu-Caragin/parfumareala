@@ -15,10 +15,18 @@ def _static_version(relative_path: str) -> int:
     query string (see base.html) - browsers treat a URL with a changed
     query string as a new resource, so an edited style.css is always
     fetched fresh instead of silently served from cache under the old URL
-    on the next normal reload (no hard-refresh needed)."""
+    on the next normal reload (no hard-refresh needed).
+
+    Nanosecond resolution (st_mtime_ns), not whole seconds (st_mtime) -
+    confirmed live as the actual cause of a stale-sidebar-CSS report:
+    several edits inside the same wall-clock second truncated to an
+    identical integer version, so the browser kept serving its cached
+    copy from before the *last* of those edits indefinitely, since the
+    query string never changed.
+    """
     path = STATIC_DIR / relative_path
     try:
-        return int(path.stat().st_mtime)
+        return path.stat().st_mtime_ns
     except OSError:
         return 0
 

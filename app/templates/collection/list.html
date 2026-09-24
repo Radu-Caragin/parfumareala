@@ -81,7 +81,7 @@
     {% set initials = (name_words[0][0] ~ (name_words[1][0] if name_words|length > 1 else ''))|upper %}
     <li class="collection-card">
         <div class="collection-card-top">
-            <div class="collection-card-avatar">{{ initials }}</div>
+            <div class="avatar-circle">{{ initials }}</div>
             <div class="collection-card-heading">
                 <div class="collection-card-brand">{{ item.brand }}</div>
                 <div class="collection-card-name">{{ item.name }}</div>

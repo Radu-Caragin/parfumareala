@@ -133,6 +133,16 @@ async def perfume_detail(request: Request, perfume_id: int, db: Session = Depend
     if check_progress is not None and check_progress.done:
         check_progress = None
 
+    # Summary stats for the sidebar overview (see collection/list.html's
+    # card footer for the same "at a glance" idea, applied here to a
+    # single perfume's overall best offer across every one of its variants).
+    stores_in_stock_count = sum(1 for result in store_results if result.status.value == "in_stock")
+    overall_best_comparison = min(
+        (c for c in comparisons if c.best_offer is not None),
+        key=lambda c: c.best_offer.current_price,
+        default=None,
+    )
+
     return templates.TemplateResponse(
         request,
         "perfumes/detail.html",
@@ -140,6 +150,8 @@ async def perfume_detail(request: Request, perfume_id: int, db: Session = Depend
             "perfume": perfume,
             "comparisons": comparisons,
             "store_results": store_results,
+            "stores_in_stock_count": stores_in_stock_count,
+            "overall_best_comparison": overall_best_comparison,
             "triggered_alerts": triggered_alerts,
             "charts_by_store_product": charts_by_store_product,
             "price_drops_by_store_product": price_drops_by_store_product,

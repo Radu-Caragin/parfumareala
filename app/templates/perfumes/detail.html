@@ -5,42 +5,84 @@
 {% block content %}
 <p><a href="/">&larr; Back to dashboard</a></p>
 
-<div class="page-header">
-    <h1>{{ perfume.brand }} {{ perfume.name }}</h1>
-    {% if check_progress %}
-    {% include "partials/check_progress.html" %}
-    {% else %}
-    <form
-        method="post"
-        action="/perfumes/{{ perfume.id }}/check"
-        onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Checking...';"
-    >
-        <button type="submit" class="button">Check prices</button>
-    </form>
-    {% endif %}
-</div>
+{% set name_words = perfume.name.split() %}
+{% set initials = (name_words[0][0] ~ (name_words[1][0] if name_words|length > 1 else ''))|upper %}
+<div class="perfume-detail-layout">
+    <aside class="perfume-summary">
+        <div class="perfume-summary-card perfume-summary-identity">
+            <div class="avatar-circle avatar-circle-lg">{{ initials }}</div>
+            <div class="perfume-summary-brand">{{ perfume.brand }}</div>
+            <h1 class="perfume-summary-name">{{ perfume.name }}</h1>
 
-<p class="meta">
-    Last checked:
-    {% if perfume.last_checked_at %}
-        {{ perfume.last_checked_at.strftime("%d %b %Y, %H:%M") }}
-    {% else %}
-        Never
-    {% endif %}
-</p>
+            {% if check_progress %}
+            {% include "partials/check_progress.html" %}
+            {% else %}
+            <form
+                method="post"
+                action="/perfumes/{{ perfume.id }}/check"
+                class="perfume-summary-check"
+                onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Checking...';"
+            >
+                <button type="submit" class="button">Check prices</button>
+            </form>
+            {% endif %}
 
-<div class="form-actions">
-    <a href="/perfumes/{{ perfume.id }}/edit" class="button secondary">Edit</a>
-    <form
-        method="post"
-        action="/perfumes/{{ perfume.id }}/delete"
-        onsubmit="return confirm('Delete {{ perfume.brand }} {{ perfume.name }}? This also deletes its variants, prices and alerts.');"
-        style="display:inline;"
-    >
-        <button type="submit" class="button secondary">Delete</button>
-    </form>
-</div>
+            <div class="perfume-summary-actions">
+                <a href="/perfumes/{{ perfume.id }}/edit" class="button secondary small">Edit</a>
+                <form
+                    method="post"
+                    action="/perfumes/{{ perfume.id }}/delete"
+                    onsubmit="return confirm('Delete {{ perfume.brand }} {{ perfume.name }}? This also deletes its variants, prices and alerts.');"
+                >
+                    <button type="submit" class="button secondary small">Delete</button>
+                </form>
+            </div>
+        </div>
 
+        <div class="perfume-summary-card">
+            <div class="perfume-summary-label">Overview</div>
+            <div class="perfume-summary-row">
+                <span class="meta">Last checked</span>
+                <span>
+                    {% if perfume.last_checked_at %}{{ perfume.last_checked_at.strftime("%d %b, %H:%M") }}{% else %}Never{% endif %}
+                </span>
+            </div>
+            {% if store_results %}
+            <div class="perfume-summary-row">
+                <span class="meta">Stores in stock</span>
+                <span>{{ stores_in_stock_count }} / {{ store_results|length }}</span>
+            </div>
+            {% endif %}
+            {% if overall_best_comparison %}
+            <div class="perfume-summary-row">
+                <span class="meta">Best price</span>
+                <span class="perfume-summary-best-value">
+                    <strong>{{ overall_best_comparison.best_offer.current_price }} {{ overall_best_comparison.best_offer.currency }}</strong>
+                    <span class="meta">{{ overall_best_comparison.best_offer.store.name }} &middot; {{ overall_best_comparison.variant.volume_ml }} ml</span>
+                </span>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if store_results %}
+        <div class="perfume-summary-card">
+            <div class="perfume-summary-label">Store status</div>
+            <ul class="perfume-store-status-list">
+                {% for result in store_results %}
+                <li title="{{ result.error_message or '' }}">
+                    <span class="status-dot status-dot-{{ result.status.value }}"></span>
+                    {{ result.store.name }}
+                    {% if result.status.value == "in_stock" %}<span class="meta">In stock</span>
+                    {% elif result.status.value == "out_of_stock" %}<span class="meta">Out of stock</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </aside>
+
+    <div class="perfume-detail-main">
 {% if triggered_alerts %}
 <div class="alert-banner">
     <h2>Price alert{{ "s" if triggered_alerts|length > 1 else "" }} triggered</h2>
@@ -59,26 +101,6 @@
     </div>
     {% endfor %}
 </div>
-{% endif %}
-
-{% if store_results %}
-<h2>Store status</h2>
-<ul class="store-status-list">
-    {% for result in store_results %}
-    <li>
-        <strong>{{ result.store.name }}</strong>
-        <span class="status-badge status-{{ result.status.value }}">
-            {%- if result.status.value == "in_stock" -%} In stock
-            {%- elif result.status.value == "out_of_stock" -%} Out of stock
-            {%- elif result.status.value == "not_found" -%} Not available
-            {%- elif result.status.value == "scraping_error" -%} Scraping error
-            {%- elif result.status.value == "store_unavailable" -%} Store unavailable
-            {%- endif -%}
-        </span>
-        {% if result.error_message %}<span class="meta">({{ result.error_message }})</span>{% endif %}
-    </li>
-    {% endfor %}
-</ul>
 {% endif %}
 
 <h2>Variants</h2>
@@ -212,4 +234,6 @@
 {% else %}
 <p class="empty-state">No variants discovered yet. Click "Check prices" to search.</p>
 {% endif %}
+    </div>
+</div>
 {% endblock %}

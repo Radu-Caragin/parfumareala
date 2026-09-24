@@ -61,41 +61,48 @@
 <div class="perfume-list">
     {% for row in rows %}
     {% set perfume = row.perfume %}
+    {% set name_words = perfume.name.split() %}
+    {% set initials = (name_words[0][0] ~ (name_words[1][0] if name_words|length > 1 else ''))|upper %}
     <article class="perfume-card">
-        <h2><a href="/perfumes/{{ perfume.id }}">{{ perfume.brand }} {{ perfume.name }}</a></h2>
-        <p class="meta">
-            Last checked:
-            {% if perfume.last_checked_at %}
-                {{ perfume.last_checked_at.strftime("%d %b %Y, %H:%M") }}
-            {% else %}
-                Never
-            {% endif %}
-        </p>
-        <p class="meta">
-            {% if row.best_price is not none %}
-                Best price: <strong class="best-price-inline">{{ row.best_price }} RON</strong>
-            {% else %}
-                No offer currently in stock
-            {% endif %}
-        </p>
+        <div class="perfume-card-top">
+            <div class="avatar-circle">{{ initials }}</div>
+            <div class="perfume-card-heading">
+                <div class="perfume-card-brand">{{ perfume.brand }}</div>
+                <a class="perfume-card-name" href="/perfumes/{{ perfume.id }}">{{ perfume.name }}</a>
+            </div>
+        </div>
+
+        <div class="perfume-card-footer">
+            <div>
+                {% if row.best_price is not none %}
+                    <strong class="best-price-inline">{{ row.best_price }} RON</strong>
+                {% else %}
+                    <span class="meta">No offer in stock</span>
+                {% endif %}
+            </div>
+            <span class="meta">
+                {% if perfume.last_checked_at %}{{ perfume.last_checked_at.strftime("%d %b, %H:%M") }}{% else %}Never checked{% endif %}
+            </span>
+        </div>
+
         <div class="card-actions">
-            <a href="/perfumes/{{ perfume.id }}" class="button secondary">View</a>
+            <a href="/perfumes/{{ perfume.id }}" class="button secondary small">View</a>
             <form
                 method="post"
                 action="/perfumes/{{ perfume.id }}/check"
                 style="display:inline;"
                 onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Checking...';"
             >
-                <button type="submit" class="button secondary">Check now</button>
+                <button type="submit" class="button secondary small">Check now</button>
             </form>
-            <a href="/perfumes/{{ perfume.id }}/edit" class="button secondary">Edit</a>
+            <a href="/perfumes/{{ perfume.id }}/edit" class="button secondary small">Edit</a>
             <form
                 method="post"
                 action="/perfumes/{{ perfume.id }}/delete"
                 onsubmit="return confirm('Delete {{ perfume.brand }} {{ perfume.name }}?');"
                 style="display:inline;"
             >
-                <button type="submit" class="button secondary">Delete</button>
+                <button type="submit" class="button secondary small">Delete</button>
             </form>
         </div>
     </article>
