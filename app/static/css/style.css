@@ -1542,6 +1542,522 @@ h3 {
     margin-top: 0.75rem;
 }
 
+/* Collection insights */
+.insights-page {
+    max-width: 1180px;
+    margin: 0 auto;
+}
+
+.insights-back {
+    display: inline-block;
+    margin-bottom: 1.25rem;
+    color: var(--color-text-muted);
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.insights-back:hover {
+    color: var(--color-primary);
+}
+
+.insights-hero {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 2rem 2.2rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: calc(var(--radius) + 4px);
+    background:
+        radial-gradient(circle at 88% 15%, var(--color-primary-soft) 0, transparent 32%),
+        linear-gradient(135deg, var(--color-surface), var(--color-surface-alt));
+    box-shadow: var(--shadow-sm);
+}
+
+.insights-hero::after {
+    content: "";
+    position: absolute;
+    right: -50px;
+    bottom: -85px;
+    width: 220px;
+    height: 220px;
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    opacity: 0.65;
+    pointer-events: none;
+}
+
+.insights-eyebrow {
+    margin: 0 0 0.35rem;
+    color: var(--color-primary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.insights-hero h1 {
+    margin-bottom: 0.4rem;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    line-height: 1.05;
+}
+
+.insights-subtitle {
+    max-width: 590px;
+    margin: 0;
+    color: var(--color-text-muted);
+}
+
+.insights-summary {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 1.4rem;
+    flex-shrink: 0;
+}
+
+.insights-summary div {
+    min-width: 82px;
+}
+
+.insights-summary strong,
+.insights-summary span {
+    display: block;
+}
+
+.insights-summary strong {
+    font-family: var(--font-heading);
+    font-size: 1.65rem;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.insights-summary span {
+    margin-top: 0.2rem;
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.insight-section {
+    margin-top: 1.25rem;
+    padding: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: calc(var(--radius) + 2px);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.insight-section-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.4rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.insight-section-heading > div {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+}
+
+.insight-section-number {
+    color: var(--color-primary);
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.insight-section-heading h2,
+.attribute-panel-heading h3,
+.cluster-card h3 {
+    margin: 0;
+}
+
+.insight-section-heading p {
+    max-width: 420px;
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.86rem;
+    text-align: right;
+}
+
+.dna-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.8fr) minmax(420px, 1.5fr);
+    gap: 2rem;
+    align-items: center;
+}
+
+.dna-orbit {
+    position: relative;
+    width: min(100%, 340px);
+    aspect-ratio: 1;
+    margin: 0 auto;
+}
+
+.dna-donut {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.dna-donut-track,
+.dna-donut-segment {
+    fill: none;
+    stroke-width: 18;
+}
+
+.dna-donut-track {
+    stroke: var(--color-surface-alt);
+}
+
+.dna-donut-segment {
+    transition: stroke-width 0.18s ease;
+}
+
+.dna-donut-segment:hover {
+    stroke-width: 21;
+}
+
+.dna-center {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.dna-center strong,
+.dna-center span {
+    display: block;
+}
+
+.dna-center strong {
+    font-family: var(--font-heading);
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+.dna-center span {
+    margin-top: 0.25rem;
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.dna-breakdown {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.25rem;
+}
+
+.dna-row-head,
+.rank-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.dna-row-head strong,
+.rank-label span {
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.dna-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.dna-label i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.dna-row p {
+    margin: 0.3rem 0 0;
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+    line-height: 1.35;
+}
+
+.insight-bar-track {
+    height: 5px;
+    margin-top: 0.35rem;
+    overflow: hidden;
+    border-radius: 99px;
+    background: var(--color-surface-alt);
+}
+
+.insight-bar-track > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-primary);
+}
+
+.attribute-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.attribute-panel {
+    padding: 1.2rem;
+    border-radius: var(--radius);
+    background: var(--color-surface-alt);
+}
+
+.attribute-panel-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.8rem;
+}
+
+.attribute-panel-heading span {
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+}
+
+.ranked-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ranked-list li {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 0.6rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.ranked-list li:last-child {
+    border-bottom: 0;
+}
+
+.rank-number {
+    padding-top: 0.05rem;
+    color: var(--color-primary);
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.rank-label strong {
+    font-size: 0.86rem;
+    text-transform: capitalize;
+}
+
+.rank-content small {
+    display: block;
+    margin-top: 0.28rem;
+    color: var(--color-text-muted);
+    font-size: 0.68rem;
+}
+
+.note-panel .insight-bar-track > span {
+    background: color-mix(in srgb, var(--color-primary) 62%, #9b5c7c);
+}
+
+.cluster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+    gap: 1rem;
+}
+
+.cluster-card {
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface-alt);
+}
+
+.cluster-card > header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1rem 0;
+}
+
+.cluster-card header span,
+.cluster-card header > strong {
+    color: var(--color-text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.cluster-card h3 {
+    margin-top: 0.18rem;
+    font-size: 1rem;
+}
+
+.cluster-map {
+    display: block;
+    width: 100%;
+    height: 190px;
+    margin: 0.25rem 0;
+}
+
+.cluster-map line {
+    stroke: var(--color-border);
+    stroke-width: 1.5;
+}
+
+.cluster-map circle {
+    fill: var(--color-primary-soft);
+    stroke: var(--color-primary);
+    stroke-width: 1.5;
+}
+
+.cluster-map text {
+    fill: var(--color-primary);
+    font-family: var(--font-body);
+    font-size: 8px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+.cluster-members {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem 0.8rem;
+    list-style: none;
+    padding: 0 1rem 1rem;
+    margin: 0;
+}
+
+.cluster-members li {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: start;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.cluster-members li > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+    font-size: 0.65rem;
+    font-weight: 700;
+}
+
+.cluster-members a {
+    color: var(--color-text);
+    font-size: 0.72rem;
+    line-height: 1.35;
+    text-decoration: none;
+}
+
+.cluster-members a:hover {
+    color: var(--color-primary);
+}
+
+.cluster-more {
+    margin: -0.25rem 1rem 1rem;
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+}
+
+.insight-empty-state,
+.insights-empty {
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+.cluster-empty {
+    padding: 2.5rem 1rem;
+    border-radius: var(--radius);
+    background: var(--color-surface-alt);
+}
+
+.insights-empty {
+    padding: 4rem 1rem;
+}
+
+.insights-empty h2 {
+    color: var(--color-text);
+}
+
+.insights-empty-mark {
+    display: block;
+    color: var(--color-primary);
+    font-size: 2.5rem;
+}
+
+@media (max-width: 900px) {
+    .insights-hero,
+    .insight-section-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .insight-section-heading p {
+        text-align: left;
+    }
+
+    .dna-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 680px) {
+    .insights-hero,
+    .insight-section {
+        padding: 1.2rem;
+    }
+
+    .insights-summary {
+        width: 100%;
+        gap: 0.75rem;
+    }
+
+    .insights-summary div {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .dna-breakdown,
+    .attribute-grid,
+    .cluster-members {
+        grid-template-columns: 1fr;
+    }
+
+    .cluster-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .accord-list {
     list-style: none;
     padding: 0;
@@ -1633,6 +2149,45 @@ h3 {
 
 .family-top-perfumes {
     margin: 0.5rem 0 0;
+}
+
+.overlap-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.overlap-row {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.overlap-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.overlap-names {
+    font-weight: 600;
+}
+
+.overlap-vs {
+    color: var(--color-text-muted);
+    font-weight: 400;
+    padding: 0 0.15rem;
+}
+
+.overlap-shared {
+    margin: 0.4rem 0 0;
 }
 
 .collection-sort a.active {

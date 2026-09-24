@@ -14,7 +14,7 @@ from app.database.repositories import collection as collection_repo
 from app.scrapers.exceptions import RequestError
 from app.scrapers.fragrantica import InvalidFragranticaUrl
 from app.scrapers.fragrantica_wardrobe import InvalidFragranticaProfileUrl, WardrobeScrapingError
-from app.services import collection_family_service, collection_service
+from app.services import collection_insights_service, collection_service
 from app.utils.templates import templates
 
 router = APIRouter()
@@ -55,8 +55,8 @@ async def list_collection(request: Request, sort: str = "name", db: Session = De
 @router.get("/collection/insights", response_class=HTMLResponse)
 async def collection_insights(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     items = collection_repo.list_all(db)
-    families = collection_family_service.build_family_breakdown(items)
-    return templates.TemplateResponse(request, "collection/insights.html", {"families": families})
+    insights = collection_insights_service.build_collection_insights(items)
+    return templates.TemplateResponse(request, "collection/insights.html", {"insights": insights})
 
 
 @router.post("/collection")

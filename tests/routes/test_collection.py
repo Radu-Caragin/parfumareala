@@ -395,26 +395,34 @@ def test_invalid_sort_falls_back_to_name(client, db_session):
     assert 'href="/collection?sort=name" class="active"' in response.text
 
 
-def test_insights_shows_empty_state_with_no_accords(client, db_session, mock_fetch):
-    response = client.get("/collection/insights")
-
-    assert response.status_code == 200
-    assert "Add a few perfumes with accords" in response.text
-
-
-def test_insights_shows_family_breakdown(client, db_session):
+def test_insights_page_visualizes_collection_dna_notes_and_clusters(client, db_session):
+    first = collection_repo.create(
+        db_session,
+        brand="A",
+        name="One",
+        fragrantica_url="https://www.fragrantica.com/perfume/A/One-1.html",
+        accords=[("amber", 90), ("citrus", 40)],
+        notes=[("top", "Bergamot"), ("base", "Vanilla")],
+        similar_perfumes=[("B", "Two", "https://www.fragrantica.com/perfume/B/Two-2.html")],
+    )
     collection_repo.create(
-        db_session, brand="A", name="One", fragrantica_url="https://x/1",
-        accords=[("woody", 80), ("citrus", 20)], notes=[],
+        db_session,
+        brand="B",
+        name="Two",
+        fragrantica_url="https://www.fragrantica.com/perfume/B/Two-2.html",
+        accords=[("amber", 70)],
+        notes=[("top", "Bergamot")],
+        similar_perfumes=[("A", "One", first.fragrantica_url)],
     )
 
     response = client.get("/collection/insights")
 
     assert response.status_code == 200
-    assert "Add a few perfumes with accords" not in response.text
-    assert "Woods" in response.text
-    assert "Citrus" in response.text
-    assert "(Woody)" in response.text
-    assert "(Fresh)" in response.text
-    assert "80.0%" in response.text
+    assert "Collection insights" in response.text
+    assert "Collection DNA" in response.text
+    assert "Top notes &amp; accords" in response.text
+    assert "Similar clusters" in response.text
+    assert "amber" in response.text
+    assert "Bergamot" in response.text
     assert "A One" in response.text
+    assert "B Two" in response.text

@@ -3,32 +3,145 @@
 {% block title %}Collection insights - Perfume Price Tracker{% endblock %}
 
 {% block content %}
-<p><a href="/collection">&larr; Back to collection</a></p>
-<h1>Collection insights</h1>
-<p class="meta">
-    What kind of perfumes make up your collection, grouped into olfactory subfamilies based on their accords -
-    weighted by how strong each accord actually is, not just whether it's present. Color groups related
-    subfamilies together (e.g. Citrus/Green/Aquatic/Aromatic are all Fresh).
-</p>
+<div class="insights-page">
+    <a href="/collection" class="insights-back">&larr; Back to collection</a>
 
-{% if families %}
-<ul class="family-list">
-    {% for family in families %}
-    <li class="family-row">
-        <div class="family-row-header">
-            <span class="family-name">{{ family.name }} <span class="family-group">({{ family.group }})</span></span>
-            <span class="family-percentage">{{ family.percentage }}%</span>
+    <header class="insights-hero">
+        <div>
+            <p class="insights-eyebrow">Your olfactory profile</p>
+            <h1>Collection insights</h1>
+            <p class="insights-subtitle">A visual reading of what connects your fragrances and what makes the collection yours.</p>
         </div>
-        <div class="family-bar-track">
-            <div class="family-bar-fill" style="width: {{ family.percentage }}%; background: {{ family.color }};"></div>
+        {% if insights.perfume_count %}
+        <div class="insights-summary" aria-label="Collection summary">
+            <div><strong>{{ insights.perfume_count }}</strong><span>perfumes</span></div>
+            <div><strong>{{ insights.brand_count }}</strong><span>houses</span></div>
+            <div><strong>{{ insights.similarity_signal_count }}</strong><span>similarity signals</span></div>
         </div>
-        {% if family.top_perfumes %}
-        <p class="meta family-top-perfumes">Mostly from: {{ family.top_perfumes|join(", ") }}</p>
         {% endif %}
-    </li>
-    {% endfor %}
-</ul>
-{% else %}
-<p class="empty-state">Add a few perfumes with accords to your collection to see a breakdown here.</p>
-{% endif %}
+    </header>
+
+    {% if not insights.perfume_count %}
+    <div class="insights-empty">
+        <span class="insights-empty-mark">&#10022;</span>
+        <h2>Your collection is waiting for a story</h2>
+        <p>Add perfumes with notes and accords, then return here to see its olfactory DNA.</p>
+        <a href="/collection" class="button">Go to collection</a>
+    </div>
+    {% else %}
+    <section class="insight-section" aria-labelledby="dna-heading">
+        <div class="insight-section-heading">
+            <div><span class="insight-section-number">01</span><h2 id="dna-heading">Collection DNA</h2></div>
+            <p>The accord families that shape the character of your wardrobe.</p>
+        </div>
+
+        {% if insights.dna %}
+        <div class="dna-layout">
+            <div class="dna-orbit">
+                <svg class="dna-donut" viewBox="0 0 160 160" role="img" aria-labelledby="dna-chart-title dna-chart-desc">
+                    <title id="dna-chart-title">Olfactory family distribution</title>
+                    <desc id="dna-chart-desc">A ring chart showing each accord family's share of the collection.</desc>
+                    <circle class="dna-donut-track" cx="80" cy="80" r="58" pathLength="100"></circle>
+                    {% for segment in insights.dna %}
+                    <circle class="dna-donut-segment" cx="80" cy="80" r="58" pathLength="100"
+                            stroke="{{ segment.color }}"
+                            stroke-dasharray="{{ segment.percentage }} {{ 100 - segment.percentage }}"
+                            stroke-dashoffset="-{{ segment.offset }}"></circle>
+                    {% endfor %}
+                </svg>
+                <div class="dna-center" aria-hidden="true"><strong>{{ insights.perfume_count }}</strong><span>scents</span></div>
+            </div>
+            <div class="dna-breakdown">
+                {% for segment in insights.dna %}
+                <div class="dna-row">
+                    <div class="dna-row-head">
+                        <span class="dna-label"><i style="background: {{ segment.color }}"></i>{{ segment.name }}</span>
+                        <strong>{{ segment.percentage }}%</strong>
+                    </div>
+                    <div class="insight-bar-track" aria-hidden="true"><span style="width: {{ segment.percentage }}%; background: {{ segment.color }}"></span></div>
+                    <p>{{ segment.group }} · led by {{ segment.top_perfumes|join(', ') }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <p class="insight-empty-state">No accord data is available yet.</p>
+        {% endif %}
+    </section>
+
+    <section class="insight-section" aria-labelledby="attributes-heading">
+        <div class="insight-section-heading">
+            <div><span class="insight-section-number">02</span><h2 id="attributes-heading">Top notes &amp; accords</h2></div>
+            <p>The ingredients and impressions that recur most often.</p>
+        </div>
+        <div class="attribute-grid">
+            <div class="attribute-panel">
+                <div class="attribute-panel-heading"><h3>Main accords</h3><span>weighted by intensity</span></div>
+                {% if insights.top_accords %}
+                <ol class="ranked-list">
+                    {% for item in insights.top_accords %}
+                    <li>
+                        <span class="rank-number">{{ '%02d'|format(loop.index) }}</span>
+                        <div class="rank-content">
+                            <div class="rank-label"><strong>{{ item.name }}</strong><span>{{ item.collection_percentage }}%</span></div>
+                            <div class="insight-bar-track"><span style="width: {{ item.bar_percentage }}%"></span></div>
+                            <small>{{ item.detail }}</small>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ol>
+                {% else %}<p class="insight-empty-state">No accords available.</p>{% endif %}
+            </div>
+            <div class="attribute-panel note-panel">
+                <div class="attribute-panel-heading"><h3>Perfume notes</h3><span>frequency across collection</span></div>
+                {% if insights.top_notes %}
+                <ol class="ranked-list">
+                    {% for item in insights.top_notes %}
+                    <li>
+                        <span class="rank-number">{{ '%02d'|format(loop.index) }}</span>
+                        <div class="rank-content">
+                            <div class="rank-label"><strong>{{ item.name }}</strong><span>{{ item.collection_percentage }}%</span></div>
+                            <div class="insight-bar-track"><span style="width: {{ item.bar_percentage }}%"></span></div>
+                            <small>{{ item.detail }}</small>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ol>
+                {% else %}<p class="insight-empty-state">No notes available.</p>{% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="insight-section" aria-labelledby="clusters-heading">
+        <div class="insight-section-heading">
+            <div><span class="insight-section-number">03</span><h2 id="clusters-heading">Similar clusters</h2></div>
+            <p>Groups that Fragrantica's community connects in both directions.</p>
+        </div>
+        {% if insights.clusters %}
+        <div class="cluster-grid">
+            {% for cluster in insights.clusters %}
+            <article class="cluster-card">
+                <header>
+                    <div><span>Cluster {{ '%02d'|format(loop.index) }}</span><h3>{{ cluster.total_members }} connected perfumes</h3></div>
+                    <strong>{{ cluster.connection_count }} {{ 'link' if cluster.connection_count == 1 else 'links' }}</strong>
+                </header>
+                <svg class="cluster-map" viewBox="0 0 240 124" role="img" aria-label="Similarity network for cluster {{ loop.index }}">
+                    {% for edge in cluster.edges %}<line x1="{{ edge.x1 }}" y1="{{ edge.y1 }}" x2="{{ edge.x2 }}" y2="{{ edge.y2 }}"></line>{% endfor %}
+                    {% for node in cluster.nodes %}
+                    <g><circle cx="{{ node.x }}" cy="{{ node.y }}" r="12"></circle><text x="{{ node.x }}" y="{{ node.y }}">{{ node.number }}</text></g>
+                    {% endfor %}
+                </svg>
+                <ol class="cluster-members">
+                    {% for node in cluster.nodes %}<li><span>{{ node.number }}</span><a href="{{ node.url }}" target="_blank" rel="noopener">{{ node.label }}</a></li>{% endfor %}
+                </ol>
+                {% if cluster.total_members > cluster.nodes|length %}<p class="cluster-more">+ {{ cluster.total_members - cluster.nodes|length }} more perfumes in this cluster</p>{% endif %}
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="insight-empty-state cluster-empty">No mutual similarity clusters yet. Refresh similar perfumes for the collection to build this map.</div>
+        {% endif %}
+    </section>
+    {% endif %}
+</div>
 {% endblock %}
