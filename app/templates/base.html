@@ -6,7 +6,7 @@
     <title>{% block title %}Perfume Price Tracker{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v={{ static_version('css/style.css') }}">
     <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
     <script>
@@ -22,6 +22,9 @@
                 if (stored === "dark" || stored === "light") {
                     document.documentElement.setAttribute("data-theme", stored);
                 }
+                if (localStorage.getItem("sidebarCollapsed") === "true") {
+                    document.documentElement.setAttribute("data-sidebar", "collapsed");
+                }
             } catch (e) {
                 // localStorage can throw (private browsing, blocked site
                 // data) - falling back to the OS preference is fine.
@@ -32,18 +35,21 @@
 <body>
     <div class="app-shell">
         <aside class="sidebar">
-            <a class="brand" href="/"><span class="brand-mark">&#10022;</span> Perfume Price Tracker</a>
+            <div class="sidebar-header">
+                <a class="brand" href="/"><span class="brand-mark">&#10022;</span><span class="brand-label"> Perfume Price Tracker</span></a>
+                <button type="button" class="sidebar-toggle" id="sidebar-toggle" title="Collapse sidebar" aria-label="Collapse sidebar">&#8249;</button>
+            </div>
             <nav class="sidebar-nav">
-                <a href="/" class="{{ 'active' if request.url.path == '/' else '' }}">Dashboard</a>
-                <a href="/stores" class="{{ 'active' if request.url.path == '/stores' else '' }}">Stores</a>
-                <a href="/stores/catalog" class="{{ 'active' if request.url.path == '/stores/catalog' else '' }}">By store</a>
-                <a href="/alerts" class="{{ 'active' if request.url.path == '/alerts' else '' }}">Alerts</a>
-                <a href="/collection" class="{{ 'active' if request.url.path == '/collection' else '' }}">Collection</a>
+                <a href="/" class="{{ 'active' if request.url.path == '/' else '' }}"><span class="nav-label">Dashboard</span></a>
+                <a href="/stores" class="{{ 'active' if request.url.path == '/stores' else '' }}"><span class="nav-label">Stores</span></a>
+                <a href="/stores/catalog" class="{{ 'active' if request.url.path == '/stores/catalog' else '' }}"><span class="nav-label">By store</span></a>
+                <a href="/alerts" class="{{ 'active' if request.url.path == '/alerts' else '' }}"><span class="nav-label">Alerts</span></a>
+                <a href="/collection" class="{{ 'active' if request.url.path == '/collection' else '' }}"><span class="nav-label">Collection</span></a>
                 <a href="/price-changes" class="{{ 'active' if request.url.path == '/price-changes' else '' }}">
-                    Price changes{% set changes_count = price_changes_count() %}{% if changes_count %} <span class="nav-badge">{{ changes_count }}</span>{% endif %}
+                    <span class="nav-label">Price changes</span>{% set changes_count = price_changes_count() %}{% if changes_count %} <span class="nav-badge">{{ changes_count }}</span>{% endif %}
                 </a>
                 <a href="/match-review" class="{{ 'active' if request.url.path == '/match-review' else '' }}">
-                    Needs review{% set review_count = pending_review_count() %}{% if review_count %} <span class="nav-badge">{{ review_count }}</span>{% endif %}
+                    <span class="nav-label">Needs review</span>{% set review_count = pending_review_count() %}{% if review_count %} <span class="nav-badge">{{ review_count }}</span>{% endif %}
                 </a>
             </nav>
             <button type="button" class="theme-toggle" id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">&#9680;</button>
@@ -65,6 +71,23 @@
             root.setAttribute("data-theme", next);
             try {
                 localStorage.setItem("theme", next);
+            } catch (e) {
+                // Nothing to persist to if storage is unavailable - the
+                // choice still applies for the rest of this page view.
+            }
+        });
+
+        document.getElementById("sidebar-toggle").addEventListener("click", function () {
+            var root = document.documentElement;
+            var collapsed = root.getAttribute("data-sidebar") === "collapsed";
+            var next = collapsed ? null : "collapsed";
+            if (next) {
+                root.setAttribute("data-sidebar", next);
+            } else {
+                root.removeAttribute("data-sidebar");
+            }
+            try {
+                localStorage.setItem("sidebarCollapsed", String(!collapsed));
             } catch (e) {
                 // Nothing to persist to if storage is unavailable - the
                 // choice still applies for the rest of this page view.

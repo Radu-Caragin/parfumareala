@@ -101,6 +101,14 @@ def group_for_subfamily(subfamily: str) -> str:
     return _SUBFAMILY_TO_GROUP.get(subfamily, _FALLBACK_GROUP)
 
 
+def color_for_accord(accord_name: str) -> str:
+    """The same group color used on the Insights page, looked up for one
+    raw accord name - used to color a single accord chip (e.g. on a
+    Collection card) consistently with the aggregate breakdown."""
+    group = group_for_subfamily(subfamily_for_accord(accord_name))
+    return _GROUP_COLORS.get(group, _GROUP_COLORS[_FALLBACK_GROUP])
+
+
 @dataclass
 class FamilyShare:
     name: str

@@ -65,6 +65,13 @@ def _price_changes_count() -> int:
         db.close()
 
 
+def _accord_color(accord_name: str) -> str:
+    from app.services.collection_family_service import color_for_accord
+
+    return color_for_accord(accord_name)
+
+
 templates.env.globals["static_version"] = _static_version
 templates.env.globals["pending_review_count"] = _pending_review_count
 templates.env.globals["price_changes_count"] = _price_changes_count
+templates.env.globals["accord_color"] = _accord_color
