@@ -11,7 +11,7 @@ from app.database.models import Availability, Store
 from app.database.repositories import perfumes as perfumes_repo
 from app.database.repositories import store_products as store_products_repo
 from app.database.repositories import variants as variants_repo
-from app.services.comparison_service import compare_perfume, compare_variant
+from app.services.comparison_service import cheapest_price_for_perfume, compare_perfume, compare_variant
 
 
 def _store(db_session, slug="store-a", name="Store A"):
@@ -129,3 +129,29 @@ def test_comparisons_never_mix_variants(db_session):
 
     assert comparison_100.best_offer.current_price == Decimal("900.00")
     assert comparison_50.best_offer.current_price == Decimal("500.00")
+
+
+def test_cheapest_price_for_perfume_picks_best_value_per_ml_not_lowest_absolute_price(db_session):
+    perfume, variant_100 = _perfume_and_variant(db_session)
+    variant_30 = variants_repo.get_or_create(
+        db_session, perfume_id=perfume.id, concentration="EDP", volume_ml=30, tester=False
+    )
+    store_a = _store(db_session)
+
+    # 100ml at 500 RON = 5 RON/ml; 30ml at 200 RON = 6.67 RON/ml - the 30ml
+    # bottle is cheaper in absolute terms but the worse value per ml.
+    _add_offer(db_session, store=store_a, variant=variant_100, price=Decimal("500.00"), availability=Availability.IN_STOCK)
+    _add_offer(db_session, store=store_a, variant=variant_30, price=Decimal("200.00"), availability=Availability.IN_STOCK)
+    db_session.refresh(perfume)
+
+    assert cheapest_price_for_perfume(perfume) == Decimal("500.00")
+
+
+def test_cheapest_price_for_perfume_none_when_nothing_in_stock(db_session):
+    perfume, variant = _perfume_and_variant(db_session)
+    store_a = _store(db_session)
+
+    _add_offer(db_session, store=store_a, variant=variant, price=Decimal("500.00"), availability=Availability.OUT_OF_STOCK)
+    db_session.refresh(perfume)
+
+    assert cheapest_price_for_perfume(perfume) is None

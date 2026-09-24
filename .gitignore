@@ -11,6 +11,7 @@ env/
 
 # Environment variables (personal/local secrets, machine-specific config)
 .env
+.env.example
 
 # SQLite database (personal scraped data, not meant for version control)
 data/*.db

@@ -124,6 +124,10 @@
                 <td>{{ sp.store.name }}</td>
                 <td>
                     {{ sp.current_price }} {{ sp.currency }}
+                    {% set price_per_ml = price_per_ml_by_store_product.get(sp.id) %}
+                    {% if price_per_ml is not none %}
+                        <span class="meta">({{ "%.2f"|format(price_per_ml) }} {{ sp.currency }}/ml)</span>
+                    {% endif %}
                     {% if sp.current_old_price %}
                         <span class="old-price">{{ sp.current_old_price }} {{ sp.currency }}</span>
                     {% endif %}
@@ -201,8 +205,12 @@
     </table>
     </div>
     {% if comparison.best_offer %}
+    {% set best_price_per_ml = price_per_ml_by_store_product.get(comparison.best_offer.id) %}
     <p class="best-price-banner">
         Best price: <strong>{{ comparison.best_offer.store.name }} &mdash; {{ comparison.best_offer.current_price }} {{ comparison.best_offer.currency }}</strong>
+        {% if best_price_per_ml is not none %}
+            <span class="meta">({{ "%.2f"|format(best_price_per_ml) }} {{ comparison.best_offer.currency }}/ml)</span>
+        {% endif %}
     </p>
     {% else %}
     <p class="meta">No offer currently in stock.</p>

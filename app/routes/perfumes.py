@@ -128,6 +128,12 @@ async def perfume_detail(request: Request, perfume_id: int, db: Session = Depend
         for comparison in comparisons
         for sp in comparison.store_products
     }
+    price_per_ml_by_store_product = {
+        sp.id: sp.current_price / sp.variant.volume_ml
+        for comparison in comparisons
+        for sp in comparison.store_products
+        if sp.current_price is not None
+    }
 
     check_progress = progress_service.get(_check_progress_key(perfume_id))
     if check_progress is not None and check_progress.done:
@@ -155,6 +161,7 @@ async def perfume_detail(request: Request, perfume_id: int, db: Session = Depend
             "triggered_alerts": triggered_alerts,
             "charts_by_store_product": charts_by_store_product,
             "price_drops_by_store_product": price_drops_by_store_product,
+            "price_per_ml_by_store_product": price_per_ml_by_store_product,
             "check_progress": check_progress,
             "check_status_url": f"/perfumes/{perfume_id}/check-status",
         },

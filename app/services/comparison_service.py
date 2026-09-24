@@ -35,14 +35,27 @@ def compare_perfume(variants: list[PerfumeVariant]) -> list[VariantComparison]:
     return [compare_variant(variant) for variant in variants]
 
 
-def cheapest_price_for_perfume(perfume: Perfume) -> Decimal | None:
-    """The lowest in-stock price across every one of a perfume's variants
-    (any concentration/volume/tester combination), for the dashboard's
-    "sort by best price" - or None if nothing is currently in stock
-    anywhere. Never mixes variants together for matching purposes (that
-    rule is about which offers can be merged into one price - this only
-    picks the smallest number across already-separate variant results).
+def best_value_offer_for_perfume(perfume: Perfume) -> StoreProduct | None:
+    """Whichever in-stock variant offers the best value per ml (any
+    concentration/volume/tester combination), for the dashboard card and
+    its "sort by best price" - or None if nothing is currently in stock
+    anywhere. This picks by price/ml but returns the offer itself (its
+    .current_price is the actual price to pay, not a price/ml figure): a
+    100ml bottle at 500 RON (5 RON/ml) is picked over a 30ml bottle at 200
+    RON (6.67 RON/ml), even though 200 is the lower absolute price. Never
+    mixes variants together for matching purposes (that rule is about
+    which offers can be merged into one price - this only picks the
+    best-value one across already-separate variant results).
     """
     best_offers = (compare_variant(variant).best_offer for variant in perfume.variants)
-    prices = [offer.current_price for offer in best_offers if offer is not None]
-    return min(prices) if prices else None
+    priced_offers = [offer for offer in best_offers if offer is not None]
+    if not priced_offers:
+        return None
+    return min(priced_offers, key=lambda offer: offer.current_price / offer.variant.volume_ml)
+
+
+def cheapest_price_for_perfume(perfume: Perfume) -> Decimal | None:
+    """The price component of best_value_offer_for_perfume() - see there
+    for the selection rule."""
+    offer = best_value_offer_for_perfume(perfume)
+    return offer.current_price if offer is not None else None

@@ -76,6 +76,7 @@
             <div>
                 {% if row.best_price is not none %}
                     <strong class="best-price-inline">{{ row.best_price }} RON</strong>
+                    <span class="meta">/ {{ row.best_price_volume_ml }} ml</span>
                 {% else %}
                     <span class="meta">No offer in stock</span>
                 {% endif %}

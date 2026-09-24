@@ -53,9 +53,16 @@ async def dashboard(
     reverse = order == "desc"
 
     perfumes = perfumes_repo.list_all(db)
-    rows = [
-        {"perfume": p, "best_price": comparison_service.cheapest_price_for_perfume(p)} for p in perfumes
-    ]
+    rows = []
+    for p in perfumes:
+        best_offer = comparison_service.best_value_offer_for_perfume(p)
+        rows.append(
+            {
+                "perfume": p,
+                "best_price": best_offer.current_price if best_offer is not None else None,
+                "best_price_volume_ml": best_offer.variant.volume_ml if best_offer is not None else None,
+            }
+        )
 
     search_term = q.strip().lower()
     if search_term:
